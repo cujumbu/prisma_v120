@@ -50,18 +50,19 @@ const TicketList: React.FC = () => {
     return <div className="text-center mt-8">{t('loading')}</div>;
   }
 
-  if (error) {
-    return <div className="text-center mt-8 text-red-500">{error}</div>;
-  }
-
   return (
     <div className="container mx-auto px-4">
       <h2 className="text-2xl font-bold mb-4">{t('yourTickets')}</h2>
       <Link to="/create-ticket" className="mb-4 inline-block bg-primary text-white py-2 px-4 rounded hover:bg-primary-dark">
         {t('createNewTicket')}
       </Link>
-      {tickets.length === 0 ? (
-        <p>{t('noTickets')}</p>
+      {error ? (
+        <div className="text-center mt-8 text-red-500">{error}</div>
+      ) : tickets.length === 0 ? (
+        <div className="text-center mt-8">
+          <p>{t('noTickets')}</p>
+          <p>{t('createFirstTicket')}</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white">
