@@ -40,6 +40,13 @@ const authenticateToken = (req, res, next) => {
 app.post('/api/register', async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(20).toString('hex');
 
@@ -56,7 +63,11 @@ app.post('/api/register', async (req, res) => {
     res.status(201).json({ message: 'User registered. Please check your email for verification.' });
   } catch (error) {
     console.error('Error registering user:', error);
-    res.status(500).json({ error: 'An error occurred while registering the user' });
+    if (error.code === 'P2002' && error.meta?.target?.includes('email')) {
+      res.status(400).json({ error: 'Email already registered' });
+    } else {
+      res.status(500).json({ error: 'An error occurred while registering the user' });
+    }
   }
 });
 
