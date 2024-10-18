@@ -36,9 +36,7 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Existing routes...
-
-// New routes for user registration and email verification
+// User registration
 app.post('/api/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -62,6 +60,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Email verification
 app.get('/api/verify-email/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -83,7 +82,7 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
-// Modified login route to check for email verification
+// User login
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -103,31 +102,134 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// New routes for support tickets
+// Create a new claim
+app.post('/api/claims', authenticateToken, async (req, res) => {
+  try {
+    const newClaim = await prisma.claim.create({
+      data: {
+        ...req.body,
+        status: 'Pending'
+      }
+    });
+    await sendClaimSubmissionEmail(newClaim.email, newClaim);
+    res.status(201).json(newClaim);
+  } catch (error) {
+    console.error('Error creating claim:', error);
+    res.status(500).json({ error: 'An error occurred while creating the claim' });
+  }
+});
+
+// Get all claims
+app.get('/api/claims', authenticateToken, async (req, res) => {
+  try {
+    const claims = await prisma.claim.findMany();
+    res.json(claims);
+  } catch (error) {
+    console.error('Error fetching claims:', error);
+    res.status(500).json({ error: 'An error occurred while fetching claims' });
+  }
+});
+
+// Get a specific claim
+app.get('/api/claims/:id', authenticateToken, async (req, res) => {
+  try {
+    const claim = await prisma.claim.findUnique({
+      where: { id: req.params.id }
+    });
+    if (claim) {
+      res.json(claim);
+    } else {
+      res.status(404).json({ error: 'Claim not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching claim:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the claim' });
+  }
+});
+
+// Update a claim
+app.patch('/api/claims/:id', authenticateToken, async (req, res) => {
+  try {
+    const updatedClaim = await prisma.claim.update({
+      where: { id: req.params.id },
+      data: req.body
+    });
+    await sendClaimStatusUpdateEmail(updatedClaim.email, updatedClaim);
+    res.json(updatedClaim);
+  } catch (error) {
+    console.error('Error updating claim:', error);
+    res.status(500).json({ error: 'An error occurred while updating the claim' });
+  }
+});
+
+// Create a new return
+app.post('/api/returns', authenticateToken, async (req, res) => {
+  try {
+    const newReturn = await prisma.return.create({
+      data: {
+        ...req.body,
+        status: 'Pending'
+      }
+    });
+    res.status(201).json(newReturn);
+  } catch (error) {
+    console.error('Error creating return:', error);
+    res.status(500).json({ error: 'An error occurred while creating the return' });
+  }
+});
+
+// Get all returns
+app.get('/api/returns', authenticateToken, async (req, res) => {
+  try {
+    const returns = await prisma.return.findMany();
+    res.json(returns);
+  } catch (error) {
+    console.error('Error fetching returns:', error);
+    res.status(500).json({ error: 'An error occurred while fetching returns' });
+  }
+});
+
+// Get a specific return
+app.get('/api/returns/:id', authenticateToken, async (req, res) => {
+  try {
+    const returnItem = await prisma.return.findUnique({
+      where: { id: req.params.id }
+    });
+    if (returnItem) {
+      res.json(returnItem);
+    } else {
+      res.status(404).json({ error: 'Return not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching return:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the return' });
+  }
+});
+
+// Update a return
+app.patch('/api/returns/:id', authenticateToken, async (req, res) => {
+  try {
+    const updatedReturn = await prisma.return.update({
+      where: { id: req.params.id },
+      data: req.body
+    });
+    res.json(updatedReturn);
+  } catch (error) {
+    console.error('Error updating return:', error);
+    res.status(500).json({ error: 'An error occurred while updating the return' });
+  }
+});
+
+// Create a new ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const { orderNumber, subject, message } = req.body;
-    const userId = req.user.id;
-
-    // Check if a ticket already exists for this order number and user
-    const existingTicket = await prisma.ticket.findFirst({
-      where: {
-        orderNumber,
-        userId,
-        status: { not: 'Closed' },
-      },
-    });
-
-    if (existingTicket) {
-      return res.status(400).json({ error: 'An open ticket already exists for this order number' });
-    }
-
     const newTicket = await prisma.ticket.create({
       data: {
         orderNumber,
         subject,
         status: 'Open',
-        userId,
+        userId: req.user.id,
         messages: {
           create: {
             content: message,
@@ -139,7 +241,6 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
         messages: true,
       },
     });
-
     res.status(201).json(newTicket);
   } catch (error) {
     console.error('Error creating ticket:', error);
@@ -147,11 +248,11 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
   }
 });
 
+// Get all tickets for a user
 app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
     const tickets = await prisma.ticket.findMany({
-      where: { userId },
+      where: { userId: req.user.id },
       include: { messages: true },
     });
     res.json(tickets);
@@ -161,18 +262,33 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   }
 });
 
+// Get a specific ticket
+app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
+  try {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      include: { messages: true },
+    });
+    if (ticket && ticket.userId === req.user.id) {
+      res.json(ticket);
+    } else {
+      res.status(404).json({ error: 'Ticket not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching ticket:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
+  }
+});
+
+// Add a message to a ticket
 app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
     const { message } = req.body;
-    const userId = req.user.id;
-
     const ticket = await prisma.ticket.findUnique({
-      where: { id },
-      include: { user: true },
+      where: { id: req.params.id },
     });
 
-    if (!ticket || ticket.userId !== userId) {
+    if (!ticket || ticket.userId !== req.user.id) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
@@ -180,18 +296,14 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
       data: {
         content: message,
         isAdminReply: false,
-        ticketId: id,
+        ticketId: ticket.id,
       },
     });
 
     await prisma.ticket.update({
-      where: { id },
+      where: { id: ticket.id },
       data: { status: 'Awaiting Admin Reply' },
     });
-
-    // Send email notification to admin
-    // Implement this function in your emailService
-    // await sendTicketUpdateEmailToAdmin(ticket.orderNumber);
 
     res.status(201).json(newMessage);
   } catch (error) {
@@ -200,7 +312,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin routes for managing tickets
+// Admin routes
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
@@ -208,11 +320,18 @@ app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
 
   try {
     const tickets = await prisma.ticket.findMany({
-      include: { messages: true, user: true },
+      include: {
+        messages: true,
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
     });
     res.json(tickets);
   } catch (error) {
-    console.error('Error fetching tickets for admin:', error);
+    console.error('Error fetching tickets:', error);
     res.status(500).json({ error: 'An error occurred while fetching tickets' });
   }
 });
@@ -223,11 +342,9 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
   }
 
   try {
-    const { id } = req.params;
     const { message } = req.body;
-
     const ticket = await prisma.ticket.findUnique({
-      where: { id },
+      where: { id: req.params.id },
       include: { user: true },
     });
 
@@ -239,22 +356,21 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
       data: {
         content: message,
         isAdminReply: true,
-        ticketId: id,
+        ticketId: ticket.id,
       },
     });
 
     await prisma.ticket.update({
-      where: { id },
+      where: { id: ticket.id },
       data: { status: 'Awaiting User Reply' },
     });
 
-    // Send email notification to user
     await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.error('Error adding admin reply to ticket:', error);
-    res.status(500).json({ error: 'An error occurred while adding the reply' });
+    console.error('Error replying to ticket:', error);
+    res.status(500).json({ error: 'An error occurred while replying to the ticket' });
   }
 });
 
@@ -264,17 +380,36 @@ app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) =>
   }
 
   try {
-    const { id } = req.params;
-
     const updatedTicket = await prisma.ticket.update({
-      where: { id },
+      where: { id: req.params.id },
       data: { status: 'Closed' },
     });
-
     res.json(updatedTicket);
   } catch (error) {
     console.error('Error closing ticket:', error);
     res.status(500).json({ error: 'An error occurred while closing the ticket' });
+  }
+});
+
+// Get brands
+app.get('/api/brands', async (req, res) => {
+  try {
+    const brands = await prisma.brand.findMany();
+    res.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    res.status(500).json({ error: 'An error occurred while fetching brands' });
+  }
+});
+
+// Check if any user exists
+app.get('/api/users/check', async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    res.json({ exists: userCount > 0 });
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    res.status(500).json({ error: 'Failed to check user existence' });
   }
 });
 
