@@ -1,0 +1,9 @@
+{
+  // ... (existing translations)
+  "claim": "Garantiinõue",
+  "return": "Tagastus",
+  "pending": "Ootel",
+  "inProgress": "Töös",
+  "resolved": "Lahendatud",
+  "rejected": "Tagasi lükatud"
+}

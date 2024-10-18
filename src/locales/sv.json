@@ -1,0 +1,9 @@
+{
+  // ... (existing translations)
+  "claim": "Garantianspråk",
+  "return": "Retur",
+  "pending": "Väntande",
+  "inProgress": "Pågående",
+  "resolved": "Löst",
+  "rejected": "Avvisat"
+}

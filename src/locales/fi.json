@@ -1,0 +1,9 @@
+{
+  // ... (existing translations)
+  "claim": "Takuuvaatimus",
+  "return": "Palautus",
+  "pending": "Odottaa",
+  "inProgress": "Käsittelyssä",
+  "resolved": "Ratkaistu",
+  "rejected": "Hylätty"
+}

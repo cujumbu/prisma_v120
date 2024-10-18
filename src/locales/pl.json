@@ -1,0 +1,9 @@
+{
+  // ... (existing translations)
+  "claim": "Roszczenie Gwarancyjne",
+  "return": "Zwrot",
+  "pending": "Oczekujące",
+  "inProgress": "W trakcie",
+  "resolved": "Rozwiązane",
+  "rejected": "Odrzucone"
+}

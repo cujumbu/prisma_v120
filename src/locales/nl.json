@@ -1,0 +1,9 @@
+{
+  // ... (existing translations)
+  "claim": "Garantieclaim",
+  "return": "Retournering",
+  "pending": "In behandeling",
+  "inProgress": "In uitvoering",
+  "resolved": "Opgelost",
+  "rejected": "Afgewezen"
+}
