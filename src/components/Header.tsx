@@ -18,9 +18,11 @@ const Header: React.FC = () => {
       <li><Link to="/return" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('newReturn')}</Link></li>
       <li><Link to="/faq" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('faq')}</Link></li>
       <li><Link to="/status" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('checkStatus')}</Link></li>
+      {user && (
+        <li><Link to="/tickets" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('supportTickets')}</Link></li>
+      )}
       {user ? (
         <>
-          <li><Link to="/tickets" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('supportTickets')}</Link></li>
           {user.isAdmin && (
             <li><Link to="/admin" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('admin')}</Link></li>
           )}
