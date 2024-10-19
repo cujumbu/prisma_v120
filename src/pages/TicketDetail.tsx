@@ -47,9 +47,8 @@ const TicketDetail: React.FC = () => {
           if (response.status === 403) {
             throw new Error('Authentication failed. Please log in again.');
           }
-          const text = await response.text();
-          console.error('Server response:', text);
-          throw new Error(`Failed to fetch ticket: ${response.status} ${response.statusText}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch ticket');
         }
 
         const data = await response.json();
@@ -58,8 +57,6 @@ const TicketDetail: React.FC = () => {
         console.error('Error fetching ticket:', error);
         setError(error.message || t('errorFetchingTicket'));
         if (error.message === 'Authentication failed. Please log in again.') {
-          // Optionally, you can log out the user and redirect to login page
-          // logout();
           navigate('/login');
         }
       } finally {
@@ -115,8 +112,6 @@ const TicketDetail: React.FC = () => {
       console.error('Error sending message:', error);
       setError(error.message || t('errorSendingMessage'));
       if (error.message === 'Authentication failed. Please log in again.') {
-        // Optionally, you can log out the user and redirect to login page
-        // logout();
         navigate('/login');
       }
     }
