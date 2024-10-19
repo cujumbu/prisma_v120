@@ -18,8 +18,8 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'dist')));
