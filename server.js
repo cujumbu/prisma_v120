@@ -414,6 +414,15 @@ app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/brands', async (req, res) => {
+  try {
+    const brands = await prisma.brand.findMany();
+    res.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    res.status(500).json({ error: 'An error occurred while fetching brands' });
+  }
+});
 // Create verified admin
 app.post('/api/create-verified-admin', async (req, res) => {
   try {
