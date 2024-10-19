@@ -261,25 +261,23 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
   }
 });
 
-app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
     const { id } = req.params;
-    const { status } = req.body;
 
     const updatedTicket = await prisma.ticket.update({
       where: { id },
-      data: { status },
-      include: { messages: true, user: true },
+      data: { status: 'Closed' },
     });
 
     res.json(updatedTicket);
   } catch (error) {
-    console.error('Error updating ticket:', error);
-    res.status(500).json({ error: 'An error occurred while updating the ticket' });
+    console.error('Error closing ticket:', error);
+    res.status(500).json({ error: 'An error occurred while closing the ticket' });
   }
 });
 
@@ -348,24 +346,64 @@ app.get('/api/returns/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+// Update the ticket details route
+app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { messages: true, user: true },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    if (ticket.userId !== userId && !req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(ticket);
+  } catch (error) {
+    console.error('Error fetching ticket details:', error);
+    res.status(500).json({ error: 'An error occurred while fetching ticket details' });
+  }
+});
+
+// Update ticket status and add admin reply
+app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
     const { id } = req.params;
-    const ticket = await prisma.ticket.findUnique({
+    const { status, message } = req.body;
+
+    const updatedTicket = await prisma.ticket.update({
       where: { id },
+      data: { 
+        status,
+        messages: {
+          create: message ? {
+            content: message,
+            isAdminReply: true,
+          } : undefined,
+        },
+      },
       include: { messages: true, user: true },
     });
-    if (!ticket) {
-      return res.status(404).json({ error: 'Ticket not found' });
+
+    if (message) {
+      await sendTicketUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber);
     }
-    res.json(ticket);
+
+    res.json(updatedTicket);
   } catch (error) {
-    console.error('Error fetching ticket details:', error);
-    res.status(500).json({ error: 'An error occurred while fetching ticket details' });
+    console.error('Error updating ticket:', error);
+    res.status(500).json({ error: 'An error occurred while updating the ticket' });
   }
 });
 
