@@ -33,6 +33,8 @@ model User {
   isAdmin         Boolean   @default(false)
   isEmailVerified Boolean   @default(false)
   verificationToken String?
+  resetToken      String?
+  resetTokenExpiry DateTime?
   tickets         Ticket[]
 }
 
