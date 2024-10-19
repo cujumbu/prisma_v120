@@ -63,6 +63,15 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  useEffect(() => {
+    if (!user || !user.isAdmin) {
+      navigate('/login');
+      return;
+    }
+
+    fetchData();
+  }, [user, navigate]);
+
   const fetchData = async () => {
     setError(null);
     try {
@@ -100,15 +109,6 @@ const AdminDashboard: React.FC = () => {
       setError(error.message || 'Failed to fetch data');
     }
   };
-
-  useEffect(() => {
-    if (!user || !user.isAdmin) {
-      navigate('/login');
-      return;
-    }
-
-    fetchData();
-  }, [user, navigate]);
 
   useEffect(() => {
     let items: (Claim | Return | Ticket)[] = [];
@@ -160,11 +160,16 @@ const AdminDashboard: React.FC = () => {
           break;
       }
 
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -202,9 +207,14 @@ const AdminDashboard: React.FC = () => {
           break;
       }
 
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(endpoint, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -223,11 +233,16 @@ const AdminDashboard: React.FC = () => {
 
   const handleTicketReply = async (id: string) => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/admin/tickets/${id}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ message: ticketReply }),
       });
@@ -413,8 +428,7 @@ const AdminDashboard: React.FC = () => {
                       <p className="text-sm text-gray-500">
                         <strong>{t('brand')}:</strong> {selectedItem.brand}
                       </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        <strong>{t('problemDescription')}:</strong>
+                      <p className="text-sm textrongly>{t('problemDescription')}:</strong>
                       </p>
                       <p className="text-sm text-gray-500 mt-1 text-left">
                         {selectedItem.problemDescription}
