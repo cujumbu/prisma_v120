@@ -55,7 +55,8 @@ const AdminDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<Claim | Return | Ticket | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'claims' | 'returns' | 'tickets'>('claims');
   const [ticketReply, setTicketReply] = useState<string>('');
   const { user } = useAuth();
@@ -69,14 +70,23 @@ const AdminDashboard: React.FC = () => {
     }
 
     const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const claimsResponse = await fetch('/api/claims');
-        const returnsResponse = await fetch('/api/returns');
-        const ticketsResponse = await fetch('/api/admin/tickets', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+
+        const [claimsResponse, returnsResponse, ticketsResponse] = await Promise.all([
+          fetch('/api/claims', { headers }),
+          fetch('/api/returns', { headers }),
+          fetch('/api/admin/tickets', { headers }),
+        ]);
 
         if (!claimsResponse.ok || !returnsResponse.ok || !ticketsResponse.ok) {
           throw new Error('Failed to fetch data');
@@ -91,6 +101,12 @@ const AdminDashboard: React.FC = () => {
         setTickets(ticketsData);
       } catch (error) {
         console.error('Error fetching data:', error);
+        setError(error.message || 'Failed to fetch data');
+        if (error.message === 'No authentication token found' || error.message.includes('Invalid or expired token')) {
+          navigate('/login');
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -235,6 +251,14 @@ const AdminDashboard: React.FC = () => {
     setSelectedItem(null);
     setTicketReply('');
   };
+
+  if (isLoading) {
+    return <div className="text-center mt-8">{t('loading')}</div>;
+  }
+
+  if (error) {
+    return <div className="text-center mt-8 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -454,6 +478,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+            <div className="items-center px-4 py-3>
             <div className="items-center px-4 py-3">
               <button
                 id="ok-btn"
