@@ -261,23 +261,25 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
   }
 });
 
-app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
+app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
     const { id } = req.params;
+    const { status } = req.body;
 
     const updatedTicket = await prisma.ticket.update({
       where: { id },
-      data: { status: 'Closed' },
+      data: { status },
+      include: { messages: true, user: true },
     });
 
     res.json(updatedTicket);
   } catch (error) {
-    console.error('Error closing ticket:', error);
-    res.status(500).json({ error: 'An error occurred while closing the ticket' });
+    console.error('Error updating ticket:', error);
+    res.status(500).json({ error: 'An error occurred while updating the ticket' });
   }
 });
 
