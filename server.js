@@ -29,56 +29,14 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (token == null) return res.status(401).json({ error: 'No token provided' });
+  if (token == null) return res.sendStatus(401);
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    if (err) return res.sendStatus(403);
     req.user = user;
     next();
   });
 };
-
-// Login route
-app.post('/api/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (user && await bcrypt.compare(password, user.password)) {
-      if (!user.isEmailVerified && !user.isAdmin) {
-        return res.status(403).json({ error: 'Please verify your email before logging in' });
-      }
-      const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
-    } else {
-      res.status(401).json({ error: 'Invalid credentials' });
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'An error occurred during login' });
-  }
-});
-
-// Get single ticket route
-app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    const ticket = await prisma.ticket.findUnique({
-      where: { id },
-      include: { messages: true },
-    });
-
-    if (!ticket || ticket.userId !== userId) {
-      return res.status(404).json({ error: 'Ticket not found' });
-    }
-
-    res.json(ticket);
-  } catch (error) {
-    console.error('Error fetching ticket:', error);
-    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
-  }
-});
 
 // User registration route
 app.post('/api/register', async (req, res) => {
@@ -126,24 +84,43 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
-// Check if user exists route
-app.get('/api/users/check', async (req, res) => {
+// Login route
+app.post('/api/login', async (req, res) => {
   try {
-    const userCount = await prisma.user.count();
-    res.json({ exists: userCount > 0 });
+    const { email, password } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && await bcrypt.compare(password, user.password)) {
+      if (!user.isEmailVerified) {
+        return res.status(403).json({ error: 'Please verify your email before logging in' });
+      }
+      const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
   } catch (error) {
-    console.error('Error checking user existence:', error);
-    res.status(500).json({ error: 'An error occurred while checking user existence' });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'An error occurred during login' });
   }
 });
 
-// Create ticket route
+// Create a new ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const { orderNumber, subject, message } = req.body;
     const userId = req.user.id;
 
-    console.log('Creating ticket with data:', { orderNumber, subject, userId });
+    const existingTicket = await prisma.ticket.findFirst({
+      where: {
+        orderNumber,
+        userId,
+        status: { not: 'Closed' },
+      },
+    });
+
+    if (existingTicket) {
+      return res.status(400).json({ error: 'An open ticket already exists for this order number' });
+    }
 
     const newTicket = await prisma.ticket.create({
       data: {
@@ -163,16 +140,14 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
       },
     });
 
-    console.log('Ticket created successfully:', newTicket);
-
     res.status(201).json(newTicket);
   } catch (error) {
     console.error('Error creating ticket:', error);
-    res.status(500).json({ error: 'An error occurred while creating the ticket', details: error.message });
+    res.status(500).json({ error: 'An error occurred while creating the ticket' });
   }
 });
 
-// Get user tickets route
+// Get user's tickets
 app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -187,7 +162,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   }
 });
 
-// Add message to ticket route
+// Add a message to a ticket
 app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -223,13 +198,40 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin routes for managing tickets
-app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
-  if (!req.user.isAdmin) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
+// Admin route to get all claims
+app.get('/api/claims', authenticateToken, async (req, res) => {
   try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const claims = await prisma.claim.findMany();
+    res.json(claims);
+  } catch (error) {
+    console.error('Error fetching claims:', error);
+    res.status(500).json({ error: 'An error occurred while fetching claims' });
+  }
+});
+
+// Admin route to get all returns
+app.get('/api/returns', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const returns = await prisma.return.findMany();
+    res.json(returns);
+  } catch (error) {
+    console.error('Error fetching returns:', error);
+    res.status(500).json({ error: 'An error occurred while fetching returns' });
+  }
+});
+
+// Admin route to get all tickets
+app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     const tickets = await prisma.ticket.findMany({
       include: { messages: true, user: true },
     });
@@ -240,6 +242,7 @@ app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin route to reply to a ticket
 app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
@@ -280,6 +283,7 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
   }
 });
 
+// Admin route to close a ticket
 app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
