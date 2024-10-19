@@ -81,6 +81,7 @@ export async function sendTicketUpdateEmail(to, orderNumber) {
     { orderNumber }
   );
 }
+
 export async function sendPasswordResetEmail(to, token) {
   const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
   await sendEmail(
