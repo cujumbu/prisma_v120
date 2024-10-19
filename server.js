@@ -347,3 +347,31 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+// Create a verified admin user
+app.post('/api/create-verified-admin', async (req, res) => {
+  try {
+    const { email, password, secretKey } = req.body;
+
+    // Verify the secret key
+    if (secretKey !== process.env.ADMIN_CREATION_SECRET) {
+      return res.status(403).json({ error: 'Invalid secret key' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newAdmin = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        isAdmin: true,
+        isEmailVerified: true,
+      },
+    });
+
+    res.status(201).json({ message: 'Verified admin user created successfully', userId: newAdmin.id });
+  } catch (error) {
+    console.error('Error creating verified admin user:', error);
+    res.status(500).json({ error: 'An error occurred while creating the admin user' });
+  }
+});
