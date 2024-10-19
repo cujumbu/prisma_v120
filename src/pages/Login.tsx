@@ -56,6 +56,14 @@ const Login: React.FC = () => {
         if (response.ok) {
           setIsCreatingAdmin(false);
           setError(t('adminCreatedSuccessfully'));
+          // Automatically verify the admin account
+          await fetch('/api/admin/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          });
         } else {
           setError(data.error || t('failedToCreateAdmin'));
         }
@@ -72,7 +80,7 @@ const Login: React.FC = () => {
 
         if (response.ok) {
           login(data);
-          navigate(data.isAdmin ? '/admin' : '/status');
+          navigate(data.user.isAdmin ? '/admin' : '/status');
         } else {
           setError(data.error || t('invalidCredentials'));
         }
