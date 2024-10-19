@@ -7,8 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import cors from 'cors';
-import { sendClaimSubmissionEmail, sendClaimStatusUpdateEmail, sendVerificationEmail, sendTicketUpdateEmail } from './src/services/emailService.js';
-import { sendPasswordResetEmail } from './src/services/emailService.js';
+import { sendClaimSubmissionEmail, sendClaimStatusUpdateEmail, sendVerificationEmail, sendTicketUpdateEmail, sendPasswordResetEmail } from './src/services/emailService.js';
 
 dotenv.config();
 
@@ -108,6 +107,65 @@ app.post('/api/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'An error occurred during login' });
+  }
+});
+
+// Forgot password
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (user) {
+      const resetToken = crypto.randomBytes(20).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken, resetTokenExpiry },
+      });
+
+      await sendPasswordResetEmail(email, resetToken);
+    }
+
+    // Always return a success message to prevent email enumeration
+    res.json({ message: 'If an account exists for this email, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request' });
+  }
+});
+
+// Reset password
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null,
+      },
+    });
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'An error occurred while resetting the password' });
   }
 });
 
@@ -222,14 +280,14 @@ app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => {
+app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
 
   try {
     const { id } = req.params;
-    const { message } = req.body;
+    const { status, message } = req.body;
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
@@ -240,45 +298,28 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    const newMessage = await prisma.message.create({
-      data: {
-        content: message,
-        isAdminReply: true,
-        ticketId: id,
-      },
-    });
-
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: 'Awaiting User Reply' },
-    });
-
-    await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
-
-    res.status(201).json(newMessage);
-  } catch (error) {
-    console.error('Error adding admin reply to ticket:', error);
-    res.status(500).json({ error: 'An error occurred while adding the reply' });
-  }
-});
-
-app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
-  if (!req.user.isAdmin) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
-  try {
-    const { id } = req.params;
-
     const updatedTicket = await prisma.ticket.update({
       where: { id },
-      data: { status: 'Closed' },
+      data: {
+        status,
+        messages: message ? {
+          create: {
+            content: message,
+            isAdminReply: true,
+          },
+        } : undefined,
+      },
+      include: { messages: true },
     });
+
+    if (message) {
+      await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
+    }
 
     res.json(updatedTicket);
   } catch (error) {
-    console.error('Error closing ticket:', error);
-    res.status(500).json({ error: 'An error occurred while closing the ticket' });
+    console.error('Error updating ticket:', error);
+    res.status(500).json({ error: 'An error occurred while updating the ticket' });
   }
 });
 
@@ -347,11 +388,11 @@ app.get('/api/returns/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Update the ticket details route
 app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const isAdmin = req.user.isAdmin;
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
@@ -362,7 +403,7 @@ app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    if (ticket.userId !== userId && !req.user.isAdmin) {
+    if (!isAdmin && ticket.userId !== userId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -370,41 +411,6 @@ app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching ticket details:', error);
     res.status(500).json({ error: 'An error occurred while fetching ticket details' });
-  }
-});
-
-// Update ticket status and add admin reply
-app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
-  if (!req.user.isAdmin) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
-  try {
-    const { id } = req.params;
-    const { status, message } = req.body;
-
-    const updatedTicket = await prisma.ticket.update({
-      where: { id },
-      data: { 
-        status,
-        messages: {
-          create: message ? {
-            content: message,
-            isAdminReply: true,
-          } : undefined,
-        },
-      },
-      include: { messages: true, user: true },
-    });
-
-    if (message) {
-      await sendTicketUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber);
-    }
-
-    res.json(updatedTicket);
-  } catch (error) {
-    console.error('Error updating ticket:', error);
-    res.status(500).json({ error: 'An error occurred while updating the ticket' });
   }
 });
 
@@ -443,28 +449,4 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-});
-app.post('/api/forgot-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (user) {
-      const resetToken = crypto.randomBytes(20).toString('hex');
-      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { resetToken, resetTokenExpiry },
-      });
-
-      await sendPasswordResetEmail(email, resetToken);
-    }
-
-    // Always return a success message to prevent email enumeration
-    res.json({ message: 'If an account exists for this email, a password reset link has been sent.' });
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({ error: 'An error occurred while processing your request' });
-  }
 });
