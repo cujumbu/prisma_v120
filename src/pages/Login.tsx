@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -9,7 +9,10 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAdminVerification, setShowAdminVerification] = useState(false);
+  const [adminSecretKey, setAdminSecretKey] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const { t } = useTranslation();
 
@@ -72,7 +75,8 @@ const Login: React.FC = () => {
 
         if (response.ok) {
           login(data);
-          navigate(data.user.isAdmin ? '/admin' : '/status');
+          const { from } = location.state as { from?: string } || { from: '/' };
+          navigate(from);
         } else {
           if (data.error === 'Please verify your email before logging in') {
             setError(t('pleaseVerifyEmail'));
@@ -87,26 +91,27 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleResendVerification = async () => {
+  const handleAdminVerification = async () => {
     try {
-      const response = await fetch('/api/resend-verification', {
+      const response = await fetch('/api/verify-admin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, secretKey: adminSecretKey }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setError(t('verificationEmailResent'));
+        setError(t('adminVerificationSuccessful'));
+        setShowAdminVerification(false);
       } else {
-        setError(data.error || t('failedToResendVerification'));
+        setError(data.error || t('adminVerificationFailed'));
       }
     } catch (error) {
-      console.error('Resend verification error:', error);
-      setError(t('resendVerificationError'));
+      console.error('Admin verification error:', error);
+      setError(t('adminVerificationError'));
     }
   };
 
@@ -145,7 +150,6 @@ const Login: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            autoComplete={isCreatingAdmin ? "new-password" : "current-password"}
           />
         </div>
         <button
@@ -155,13 +159,33 @@ const Login: React.FC = () => {
           {isCreatingAdmin ? t('createAdminAccount') : t('login')}
         </button>
       </form>
+
       {error === t('pleaseVerifyEmail') && (
-        <button
-          onClick={handleResendVerification}
-          className="mt-4 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
-        >
-          {t('resendVerificationEmail')}
-        </button>
+        <div className="mt-4">
+          <button
+            onClick={() => setShowAdminVerification(!showAdminVerification)}
+            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
+          >
+            {showAdminVerification ? t('hideAdminVerification') : t('showAdminVerification')}
+          </button>
+          {showAdminVerification && (
+            <div className="mt-4">
+              <input
+                type="password"
+                value={adminSecretKey}
+                onChange={(e) => setAdminSecretKey(e.target.value)}
+                placeholder={t('enterAdminSecretKey')}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              />
+              <button
+                onClick={handleAdminVerification}
+                className="mt-2 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                {t('verifyAdminAccount')}
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
