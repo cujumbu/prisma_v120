@@ -58,7 +58,6 @@ const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'claims' | 'returns' | 'tickets'>('claims');
   const [ticketReply, setTicketReply] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -69,46 +68,50 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+
+        const [claimsResponse, returnsResponse, ticketsResponse] = await Promise.all([
+          fetch('/api/claims', { headers }),
+          fetch('/api/returns', { headers }),
+          fetch('/api/admin/tickets', { headers }),
+        ]);
+
+        if (!claimsResponse.ok || !returnsResponse.ok || !ticketsResponse.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const [claimsData, returnsData, ticketsData] = await Promise.all([
+          claimsResponse.json(),
+          returnsResponse.json(),
+          ticketsResponse.json(),
+        ]);
+
+        setClaims(claimsData);
+        setReturns(returnsData);
+        setTickets(ticketsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        if (error instanceof Error && error.message === 'No authentication token found') {
+          navigate('/login');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchData();
   }, [user, navigate]);
-
-  const fetchData = async () => {
-    setError(null);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      };
-
-      const [claimsResponse, returnsResponse, ticketsResponse] = await Promise.all([
-        fetch('/api/claims', { headers }),
-        fetch('/api/returns', { headers }),
-        fetch('/api/admin/tickets', { headers }),
-      ]);
-
-      if (!claimsResponse.ok || !returnsResponse.ok || !ticketsResponse.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const [claimsData, returnsData, ticketsData] = await Promise.all([
-        claimsResponse.json(),
-        returnsResponse.json(),
-        ticketsResponse.json(),
-      ]);
-
-      setClaims(claimsData);
-      setReturns(returnsData);
-      setTickets(ticketsData);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      setError(error.message || 'Failed to fetch data');
-    }
-  };
 
   useEffect(() => {
     let items: (Claim | Return | Ticket)[] = [];
@@ -133,6 +136,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       let endpoint = '';
       let updatedItems: (Claim | Return | Ticket)[] = [];
 
@@ -160,11 +168,6 @@ const AdminDashboard: React.FC = () => {
           break;
       }
 
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: {
@@ -186,14 +189,20 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      setError('Failed to update status');
+      if (error instanceof Error && error.message === 'No authentication token found') {
+        navigate('/login');
+      }
     }
   };
 
   const handleViewDetails = async (id: string) => {
     setIsLoading(true);
-    setError(null);
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       let endpoint = '';
       switch (activeTab) {
         case 'claims':
@@ -205,11 +214,6 @@ const AdminDashboard: React.FC = () => {
         case 'tickets':
           endpoint = `/api/admin/tickets/${id}`;
           break;
-      }
-
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
       }
 
       const response = await fetch(endpoint, {
@@ -225,7 +229,9 @@ const AdminDashboard: React.FC = () => {
       setSelectedItem(itemDetails);
     } catch (error) {
       console.error('Error fetching details:', error);
-      setError('Failed to fetch details');
+      if (error instanceof Error && error.message === 'No authentication token found') {
+        navigate('/login');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -259,7 +265,9 @@ const AdminDashboard: React.FC = () => {
       setTicketReply('');
     } catch (error) {
       console.error('Error replying to ticket:', error);
-      setError('Failed to reply to ticket');
+      if (error instanceof Error && error.message === 'No authentication token found') {
+        navigate('/login');
+      }
     }
   };
 
@@ -268,10 +276,13 @@ const AdminDashboard: React.FC = () => {
     setTicketReply('');
   };
 
+  if (isLoading) {
+    return <div className="text-center mt-8">{t('loading')}</div>;
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-4">{t('adminDashboard')}</h1>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
       <div className="mb-4">
         <button
           className={`mr-2 px-4 py-2 rounded ${activeTab === 'claims' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
@@ -428,7 +439,8 @@ const AdminDashboard: React.FC = () => {
                       <p className="text-sm text-gray-500">
                         <strong>{t('brand')}:</strong> {selectedItem.brand}
                       </p>
-                      <p className="text-sm textrongly>{t('problemDescription')}:</strong>
+                      <p className="text-sm text-gray-500 mt-2">
+                        <strong>{t('problemDescription')}:</strong>
                       </p>
                       <p className="text-sm text-gray-500 mt-1 text-left">
                         {selectedItem.problemDescription}
