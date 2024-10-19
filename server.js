@@ -29,10 +29,10 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (token == null) return res.sendStatus(401);
+  if (token == null) return res.status(401).json({ error: 'No token provided' });
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
     req.user = user;
     next();
   });
@@ -109,18 +109,6 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const { orderNumber, subject, message } = req.body;
     const userId = req.user.id;
-
-    const existingTicket = await prisma.ticket.findFirst({
-      where: {
-        orderNumber,
-        userId,
-        status: { not: 'Closed' },
-      },
-    });
-
-    if (existingTicket) {
-      return res.status(400).json({ error: 'An open ticket already exists for this order number' });
-    }
 
     const newTicket = await prisma.ticket.create({
       data: {
