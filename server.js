@@ -84,7 +84,7 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
-// Login route
+// User login route
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -147,7 +147,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
   }
 });
 
-// Get user's tickets
+// Get all tickets for a user
 app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -198,40 +198,13 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin route to get all claims
-app.get('/api/claims', authenticateToken, async (req, res) => {
-  try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const claims = await prisma.claim.findMany();
-    res.json(claims);
-  } catch (error) {
-    console.error('Error fetching claims:', error);
-    res.status(500).json({ error: 'An error occurred while fetching claims' });
-  }
-});
-
-// Admin route to get all returns
-app.get('/api/returns', authenticateToken, async (req, res) => {
-  try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const returns = await prisma.return.findMany();
-    res.json(returns);
-  } catch (error) {
-    console.error('Error fetching returns:', error);
-    res.status(500).json({ error: 'An error occurred while fetching returns' });
-  }
-});
-
-// Admin route to get all tickets
+// Admin routes for managing tickets
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   try {
-    if (!req.user.isAdmin) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
     const tickets = await prisma.ticket.findMany({
       include: { messages: true, user: true },
     });
@@ -242,7 +215,34 @@ app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin route to reply to a ticket
+// Admin route to get a specific ticket
+app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user.isAdmin) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { id } = req.params;
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+        messages: true,
+      },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    res.json(ticket);
+  } catch (error) {
+    console.error('Error fetching ticket:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
+  }
+});
+
 app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
@@ -283,7 +283,6 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
   }
 });
 
-// Admin route to close a ticket
 app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
