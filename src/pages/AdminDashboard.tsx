@@ -180,14 +180,14 @@ const AdminDashboard: React.FC = () => {
 
       const updatedItem = await response.json();
 
-      // Send email notification
-      if (activeTab !== 'tickets') {
-        await sendStatusUpdateEmail(updatedItem.email, updatedItem.orderNumber, newStatus);
-      }
-
       // Update the selected item if it's currently being viewed
       if (selectedItem && selectedItem.id === id) {
         setSelectedItem({ ...selectedItem, status: newStatus });
+      }
+
+      // Send email notification
+      if (activeTab !== 'tickets') {
+        await sendStatusUpdateEmail(updatedItem.email, updatedItem.orderNumber, newStatus);
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -214,7 +214,7 @@ const AdminDashboard: React.FC = () => {
           endpoint = `/api/returns/${id}`;
           break;
         case 'tickets':
-          endpoint = `/api/admin/tickets/${id}`;
+          endpoint = `/api/tickets/${id}`;
           break;
       }
 
@@ -246,13 +246,13 @@ const AdminDashboard: React.FC = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`/api/admin/tickets/${id}/reply`, {
-        method: 'POST',
+      const response = await fetch(`/api/admin/tickets/${id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ message: replyMessage }),
+        body: JSON.stringify({ status: 'Awaiting User Reply', message: replyMessage }),
       });
 
       if (!response.ok) {
@@ -261,14 +261,9 @@ const AdminDashboard: React.FC = () => {
 
       const updatedTicket = await response.json();
       setTickets(prevTickets => prevTickets.map(ticket =>
-        ticket.id === id ? { ...ticket, status: 'Awaiting User Reply', messages: [...ticket.messages, updatedTicket] } : ticket
+        ticket.id === id ? updatedTicket : ticket
       ));
-      setSelectedItem(prevItem => {
-        if (prevItem && 'messages' in prevItem) {
-          return { ...prevItem, status: 'Awaiting User Reply', messages: [...prevItem.messages, updatedTicket] };
-        }
-        return prevItem;
-      });
+      setSelectedItem(updatedTicket);
       setReplyMessage('');
     } catch (error) {
       console.error('Error replying to ticket:', error);
