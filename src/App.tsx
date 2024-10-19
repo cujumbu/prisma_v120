@@ -15,6 +15,7 @@ import FAQ from './pages/FAQ';
 import TicketList from './pages/TicketList';
 import TicketDetail from './pages/TicketDetail';
 import CreateTicket from './pages/CreateTicket';
+import VerifiedAdminCreation from './pages/VerifiedAdminCreation';
 import LanguageSelector from './components/LanguageSelector';
 import { AuthProvider } from './context/AuthContext';
 
@@ -51,6 +52,7 @@ function App() {
               <Route path="/tickets" element={<TicketList />} />
               <Route path="/tickets/:id" element={<TicketDetail />} />
               <Route path="/create-ticket" element={<CreateTicket />} />
+              <Route path="/create-verified-admin" element={<VerifiedAdminCreation />} />
             </Routes>
           </main>
           <Footer />
