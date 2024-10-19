@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -27,25 +27,41 @@ const TicketDetail: React.FC = () => {
   const [error, setError] = useState('');
   const { user } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchTicket = async () => {
       try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
         const response = await fetch(`/api/tickets/${id}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${token}`,
           },
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch ticket');
+          if (response.status === 403) {
+            throw new Error('Authentication failed. Please log in again.');
+          }
+          const text = await response.text();
+          console.error('Server response:', text);
+          throw new Error(`Failed to fetch ticket: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
         setTicket(data);
       } catch (error) {
         console.error('Error fetching ticket:', error);
-        setError(t('errorFetchingTicket'));
+        setError(error.message || t('errorFetchingTicket'));
+        if (error.message === 'Authentication failed. Please log in again.') {
+          // Optionally, you can log out the user and redirect to login page
+          // logout();
+          navigate('/login');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -54,24 +70,33 @@ const TicketDetail: React.FC = () => {
     if (user && id) {
       fetchTicket();
     }
-  }, [user, id, t]);
+  }, [user, id, t, navigate]);
 
   const handleSubmitMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/tickets/${id}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ message: newMessage }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        if (response.status === 403) {
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send message');
       }
 
       const data = await response.json();
@@ -88,7 +113,12 @@ const TicketDetail: React.FC = () => {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
-      setError(t('errorSendingMessage'));
+      setError(error.message || t('errorSendingMessage'));
+      if (error.message === 'Authentication failed. Please log in again.') {
+        // Optionally, you can log out the user and redirect to login page
+        // logout();
+        navigate('/login');
+      }
     }
   };
 
