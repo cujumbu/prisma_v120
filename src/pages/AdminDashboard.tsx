@@ -157,7 +157,7 @@ const AdminDashboard: React.FC = () => {
           setReturns(updatedItems as Return[]);
           break;
         case 'tickets':
-          endpoint = `/api/admin/tickets/${id}/close`;
+          endpoint = `/api/admin/tickets/${id}`;
           updatedItems = tickets.map(ticket =>
             ticket.id === id ? { ...ticket, status: newStatus } : ticket
           );
@@ -183,6 +183,11 @@ const AdminDashboard: React.FC = () => {
       // Send email notification
       if (activeTab !== 'tickets') {
         await sendStatusUpdateEmail(updatedItem.email, updatedItem.orderNumber, newStatus);
+      }
+
+      // Update the selected item if it's currently being viewed
+      if (selectedItem && selectedItem.id === id) {
+        setSelectedItem({ ...selectedItem, status: newStatus });
       }
     } catch (error) {
       console.error('Error updating status:', error);
