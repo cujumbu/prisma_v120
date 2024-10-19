@@ -99,11 +99,6 @@
   "returnDetails": "Return Details",
   "acknowledgeAndContinue": "I understand, continue to next",
   "acknowledgeAndProceed": "I understand, proceed to form",
-  "checkCaseStatus": "Check Case Status",
-  "noCaseFound": "No case found",
-  "errorFetchingCase": "An error occurred while fetching the case. Please try again.",
-  "caseStatus": "Case Status",
-  "caseType": "Case Type",
   "claim": "Warranty Claim",
   "return": "Return",
   "open": "Open",
@@ -139,5 +134,11 @@
   "verifiedAdminCreated": "Verified admin created successfully",
   "failedToCreateVerifiedAdmin": "Failed to create verified admin",
   "errorCreatingVerifiedAdmin": "An error occurred while creating the verified admin",
-  "supportTickets": "Support Tickets"
+  "supportTickets": "Support Tickets",
+  "forgotPassword": "Forgot Password?",
+  "dontHaveAccount": "Don't have an account?",
+  "registerHere": "Register here",
+  "pleaseEnterEmail": "Please enter your email address",
+  "passwordResetEmailSent": "If an account exists for this email, a password reset link has been sent.",
+  "forgotPasswordError": "An error occurred while processing your request. Please try again."
 }
