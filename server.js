@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import cors from 'cors';
 import { sendClaimSubmissionEmail, sendClaimStatusUpdateEmail, sendVerificationEmail, sendTicketUpdateEmail } from './src/services/emailService.js';
 
 dotenv.config();
@@ -17,6 +18,7 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 
 // Serve static files from the React app
@@ -27,14 +29,34 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (token == null) return res.sendStatus(401);
+  if (token == null) return res.status(401).json({ error: 'No token provided' });
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
     req.user = user;
     next();
   });
 };
+
+// Login route
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && await bcrypt.compare(password, user.password)) {
+      if (!user.isEmailVerified && !user.isAdmin) {
+        return res.status(403).json({ error: 'Please verify your email before logging in' });
+      }
+      const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'An error occurred during login' });
+  }
+});
 
 // User registration route
 app.post('/api/register', async (req, res) => {
@@ -82,38 +104,14 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
-// Admin account verification route
-app.post('/api/admin/verify', async (req, res) => {
-  const { email } = req.body;
+// Check if user exists route
+app.get('/api/users/check', async (req, res) => {
   try {
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: { isEmailVerified: true },
-    });
-    res.json({ message: 'Admin account verified successfully' });
+    const userCount = await prisma.user.count();
+    res.json({ exists: userCount > 0 });
   } catch (error) {
-    console.error('Error verifying admin account:', error);
-    res.status(500).json({ error: 'An error occurred while verifying the admin account' });
-  }
-});
-
-// Login route
-app.post('/api/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (user && await bcrypt.compare(password, user.password)) {
-      if (!user.isEmailVerified && !user.isAdmin) {
-        return res.status(403).json({ error: 'Please verify your email before logging in' });
-      }
-      const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
-    } else {
-      res.status(401).json({ error: 'Invalid credentials' });
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'An error occurred during login' });
+    console.error('Error checking user existence:', error);
+    res.status(500).json({ error: 'An error occurred while checking user existence' });
   }
 });
 
@@ -124,19 +122,6 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
     const userId = req.user.id;
 
     console.log('Creating ticket with data:', { orderNumber, subject, userId });
-
-    // Check if a ticket already exists for this order number and user
-    const existingTicket = await prisma.ticket.findFirst({
-      where: {
-        orderNumber,
-        userId,
-        status: { not: 'Closed' },
-      },
-    });
-
-    if (existingTicket) {
-      return res.status(400).json({ error: 'An open ticket already exists for this order number' });
-    }
 
     const newTicket = await prisma.ticket.create({
       data: {
@@ -209,10 +194,6 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
       data: { status: 'Awaiting Admin Reply' },
     });
 
-    // Send email notification to admin
-    // Implement this function in your emailService
-    // await sendTicketUpdateEmailToAdmin(ticket.orderNumber);
-
     res.status(201).json(newMessage);
   } catch (error) {
     console.error('Error adding message to ticket:', error);
@@ -268,7 +249,6 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
       data: { status: 'Awaiting User Reply' },
     });
 
-    // Send email notification to user
     await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
 
     res.status(201).json(newMessage);
