@@ -309,6 +309,64 @@ app.get('/api/returns', authenticateToken, async (req, res) => {
   }
 });
 
+// New routes for fetching details of claims, returns, and tickets
+app.get('/api/claims/:id', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  try {
+    const { id } = req.params;
+    const claim = await prisma.claim.findUnique({ where: { id } });
+    if (!claim) {
+      return res.status(404).json({ error: 'Claim not found' });
+    }
+    res.json(claim);
+  } catch (error) {
+    console.error('Error fetching claim details:', error);
+    res.status(500).json({ error: 'An error occurred while fetching claim details' });
+  }
+});
+
+app.get('/api/returns/:id', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  try {
+    const { id } = req.params;
+    const returnItem = await prisma.return.findUnique({ where: { id } });
+    if (!returnItem) {
+      return res.status(404).json({ error: 'Return not found' });
+    }
+    res.json(returnItem);
+  } catch (error) {
+    console.error('Error fetching return details:', error);
+    res.status(500).json({ error: 'An error occurred while fetching return details' });
+  }
+});
+
+app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  try {
+    const { id } = req.params;
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { messages: true, user: true },
+    });
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    res.json(ticket);
+  } catch (error) {
+    console.error('Error fetching ticket details:', error);
+    res.status(500).json({ error: 'An error occurred while fetching ticket details' });
+  }
+});
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*', (req, res) => {
