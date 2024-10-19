@@ -63,48 +63,49 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  const fetchData = async () => {
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      const [claimsResponse, returnsResponse, ticketsResponse] = await Promise.all([
+        fetch('/api/claims', { headers }),
+        fetch('/api/returns', { headers }),
+        fetch('/api/admin/tickets', { headers }),
+      ]);
+
+      if (!claimsResponse.ok || !returnsResponse.ok || !ticketsResponse.ok) {
+        throw new Error('Failed to fetch data');
+      }
+
+      const [claimsData, returnsData, ticketsData] = await Promise.all([
+        claimsResponse.json(),
+        returnsResponse.json(),
+        ticketsResponse.json(),
+      ]);
+
+      setClaims(claimsData);
+      setReturns(returnsData);
+      setTickets(ticketsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error.message || 'Failed to fetch data');
+    }
+  };
+
   useEffect(() => {
     if (!user || !user.isAdmin) {
       navigate('/login');
       return;
     }
-
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
-        const headers = {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        };
-
-        const [claimsResponse, returnsResponse, ticketsResponse] = await Promise.all([
-          fetch('/api/claims', { headers }),
-          fetch('/api/returns', { headers }),
-          fetch('/api/admin/tickets', { headers }),
-        ]);
-
-        if (!claimsResponse.ok || !returnsResponse.ok || !ticketsResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
-
-        const [claimsData, returnsData, ticketsData] = await Promise.all([
-          claimsResponse.json(),
-          returnsResponse.json(),
-          ticketsResponse.json(),
-        ]);
-
-        setClaims(claimsData);
-        setReturns(returnsData);
-        setTickets(ticketsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError(error.message || 'Failed to fetch data');
-      }
-    };
 
     fetchData();
   }, [user, navigate]);
@@ -132,11 +133,6 @@ const AdminDashboard: React.FC = () => {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       let endpoint = '';
       let updatedItems: (Claim | Return | Ticket)[] = [];
 
@@ -168,7 +164,7 @@ const AdminDashboard: React.FC = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -185,7 +181,7 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      setError(error.message || 'Failed to update status');
+      setError('Failed to update status');
     }
   };
 
@@ -193,11 +189,6 @@ const AdminDashboard: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       let endpoint = '';
       switch (activeTab) {
         case 'claims':
@@ -213,27 +204,18 @@ const AdminDashboard: React.FC = () => {
 
       const response = await fetch(endpoint, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch details');
-        } else {
-          const text = await response.text();
-          console.error('Unexpected response:', text);
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
+        throw new Error('Failed to fetch details');
       }
-
       const itemDetails = await response.json();
       setSelectedItem(itemDetails);
     } catch (error) {
       console.error('Error fetching details:', error);
-      setError(error.message || 'Failed to fetch details. Please try again.');
+      setError('Failed to fetch details');
     } finally {
       setIsLoading(false);
     }
@@ -241,16 +223,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleTicketReply = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       const response = await fetch(`/api/admin/tickets/${id}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ message: ticketReply }),
       });
@@ -267,7 +244,7 @@ const AdminDashboard: React.FC = () => {
       setTicketReply('');
     } catch (error) {
       console.error('Error replying to ticket:', error);
-      setError(error.message || 'Failed to reply to ticket');
+      setError('Failed to reply to ticket');
     }
   };
 
@@ -484,7 +461,7 @@ const AdminDashboard: React.FC = () => {
                           ></textarea>
                           <button
                             onClick={() => handleTicketReply(selectedItem.id)}
-                            className="mt-2 bg-blue-500hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                            className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
                           >
                             {t('sendReply')}
                           </button>
