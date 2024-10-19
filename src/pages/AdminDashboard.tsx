@@ -136,6 +136,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       let endpoint = '';
       let updatedItems: (Claim | Return | Ticket)[] = [];
 
@@ -167,7 +172,7 @@ const AdminDashboard: React.FC = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -184,12 +189,18 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error updating status:', error);
+      setError(error.message || 'Failed to update status');
     }
   };
 
   const handleViewDetails = async (id: string) => {
     setIsLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       let endpoint = '';
       switch (activeTab) {
         case 'claims':
@@ -205,7 +216,7 @@ const AdminDashboard: React.FC = () => {
 
       const response = await fetch(endpoint, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -216,6 +227,7 @@ const AdminDashboard: React.FC = () => {
       setSelectedItem(itemDetails);
     } catch (error) {
       console.error('Error fetching details:', error);
+      setError(error.message || 'Failed to fetch details');
     } finally {
       setIsLoading(false);
     }
@@ -223,11 +235,16 @@ const AdminDashboard: React.FC = () => {
 
   const handleTicketReply = async (id: string) => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch(`/api/admin/tickets/${id}/reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ message: ticketReply }),
       });
@@ -244,6 +261,7 @@ const AdminDashboard: React.FC = () => {
       setTicketReply('');
     } catch (error) {
       console.error('Error replying to ticket:', error);
+      setError(error.message || 'Failed to reply to ticket');
     }
   };
 
@@ -385,100 +403,95 @@ const AdminDashboard: React.FC = () => {
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {activeTab === 'claims' ? t('claimDetails') : activeTab === 'returns' ? t('returnDetails') : t('ticketDetails')}
               </h3>
-              {isLoading ? (
-                <p>{t('loading')}</p>
-              ) : (
-                <div className="mt-2 px-7 py-3">
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  <strong>{t('orderNumber')}:</strong> {selectedItem.orderNumber}
+                </p>
+                <p className="text-sm text-gray-500">
+                  <strong>{t('email')}:</strong> {('email' in selectedItem) ? selectedItem.email : (selectedItem as Ticket).user.email}
+                </p>
+                <p className="text-sm text-gray-500">
+                  <strong>{t('status')}:</strong> {selectedItem.status}
+                </p>
+                {'submissionDate' in selectedItem && (
                   <p className="text-sm text-gray-500">
-                    <strong>{t('orderNumber')}:</strong> {selectedItem.orderNumber}
+                    <strong>{t('submissionDate')}:</strong> {new Date(selectedItem.submissionDate).toLocaleString()}
                   </p>
+                )}
+                {'createdAt' in selectedItem && (
                   <p className="text-sm text-gray-500">
-                    <strong>{t('email')}:</strong> {('email' in selectedItem) ? selectedItem.email : (selectedItem as Ticket).user.email}
+                    <strong>{t('createdAt')}:</strong> {new Date(selectedItem.createdAt).toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    <strong>{t('status')}:</strong> {selectedItem.status}
-                  </p>
-                  {'submissionDate' in selectedItem && (
+                )}
+                {'name' in selectedItem && (
+                  <>
                     <p className="text-sm text-gray-500">
-                      <strong>{t('submissionDate')}:</strong> {new Date(selectedItem.submissionDate).toLocaleString()}
+                      <strong>{t('name')}:</strong> {selectedItem.name}
                     </p>
-                  )}
-                  {'createdAt' in selectedItem && (
                     <p className="text-sm text-gray-500">
-                      <strong>{t('createdAt')}:</strong> {new Date(selectedItem.createdAt).toLocaleString()}
+                      <strong>{t('phoneNumber')}:</strong> {selectedItem.phoneNumber}
                     </p>
-                  )}
-                  {'name' in selectedItem && (
-                    <>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('name')}:</strong> {selectedItem.name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('phoneNumber')}:</strong> {selectedItem.phoneNumber}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('brand')}:</strong> {selectedItem.brand}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        <strong>{t('problemDescription')}:</strong>
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1 text-left">
-                        {selectedItem.problemDescription}
-                      </p>
-                    </>
-                  )}
-                  {'reason' in selectedItem && (
-                    <>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('returnReason')}:</strong> {t(selectedItem.reason)}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        <strong>{t('returnDescription')}:</strong>
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1 text-left">
-                        {selectedItem.description}
-                      </p>
-                    </>
-                  )}
-                  {'subject' in selectedItem && (
-                    <>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('subject')}:</strong> {selectedItem.subject}
-                      </p>
-                      {selectedItem.messages && selectedItem.messages.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-900">{t('messages')}:</h4>
-                          {selectedItem.messages.map((message: any, index: number) => (
-                            <div key={index} className="mt-2 text-sm text-gray-500">
-                              <p><strong>{message.isAdminReply ? t('admin') : t('user')}:</strong> {message.content}</p>
-                              <p className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {selectedItem.status !== 'Closed' && (
-                        <div className="mt-4">
-                          <textarea
-                            value={ticketReply}
-                            onChange={(e) => setTicketReply(e.target.value)}
-                            placeholder={t('typeYourReply')}
-                            className="w-full p-2 border rounded"
-                            rows={3}
-                          ></textarea>
-                          <button
-                            onClick={() => handleTicketReply(selectedItem.id)}
-                            className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                          >
-                            {t('sendReply')}
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+                    <p className="text-sm text-gray-500">
+                      <strong>{t('brand')}:</strong> {selectedItem.brand}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      <strong>{t('problemDescription')}:</strong>
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1 text-left">
+                      {selectedItem.problemDescription}
+                    </p>
+                  </>
+                )}
+                {'reason' in selectedItem && (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      <strong>{t('returnReason')}:</strong> {t(selectedItem.reason)}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      <strong>{t('returnDescription')}:</strong>
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1 text-left">
+                      {selectedItem.description}
+                    </p>
+                  </>
+                )}
+                {'subject' in selectedItem && (
+                  <>
+                    <p className="text-sm text-gray-500">
+                      <strong>{t('subject')}:</strong> {selectedItem.subject}
+                    </p>
+                    {selectedItem.messages && selectedItem.messages.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-900">{t('messages')}:</h4>
+                        {selectedItem.messages.map((message: any, index: number) => (
+                          <div key={index} className="mt-2 text-sm text-gray-500">
+                            <p><strong>{message.isAdminReply ? t('admin') : t('user')}:</strong> {message.content}</p>
+                            <p className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedItem.status !== 'Closed' && (
+                      <div className="mt-4">
+                        <textarea
+                          value={ticketReply}
+                          onChange={(e) => setTicketReply(e.target.value)}
+                          placeholder={t('typeYourReply')}
+                          className="w-full p-2 border rounded"
+                          rows={3}
+                        ></textarea>
+                        <button
+                          onClick={() => handleTicketReply(selectedItem.id)}
+                          className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                        >
+                          {t('sendReply')}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="items-center px-4 py-3>
             <div className="items-center px-4 py-3">
               <button
                 id="ok-btn"
