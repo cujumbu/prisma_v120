@@ -18,17 +18,11 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'dist')));
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
-});
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
@@ -44,15 +38,10 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// User existence check
-app.get('/api/users/check', async (req, res) => {
-  try {
-    const adminUser = await prisma.user.findFirst({ where: { isAdmin: true } });
-    res.json({ exists: !!adminUser });
-  } catch (error) {
-    console.error('Error checking user existence:', error);
-    res.status(500).json({ error: 'An error occurred while checking user existence' });
-  }
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // User registration
@@ -127,6 +116,18 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
     const { orderNumber, subject, message } = req.body;
     const userId = req.user.id;
 
+    const existingTicket = await prisma.ticket.findFirst({
+      where: {
+        orderNumber,
+        userId,
+        status: { not: 'Closed' },
+      },
+    });
+
+    if (existingTicket) {
+      return res.status(400).json({ error: 'An open ticket already exists for this order number' });
+    }
+
     const newTicket = await prisma.ticket.create({
       data: {
         orderNumber,
@@ -152,7 +153,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all tickets for a user
+// Get user's tickets
 app.get('/api/tickets', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -164,31 +165,6 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching tickets:', error);
     res.status(500).json({ error: 'An error occurred while fetching tickets' });
-  }
-});
-
-// Get a specific ticket
-app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    const ticket = await prisma.ticket.findFirst({
-      where: { 
-        id,
-        userId,
-      },
-      include: { messages: true },
-    });
-
-    if (!ticket) {
-      return res.status(404).json({ error: 'Ticket not found' });
-    }
-
-    res.json(ticket);
-  } catch (error) {
-    console.error('Error fetching ticket:', error);
-    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
   }
 });
 
@@ -228,7 +204,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   }
 });
 
-// Admin routes for managing tickets
+// Admin routes for managing tickets, claims, and returns
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
@@ -305,36 +281,31 @@ app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) =>
   }
 });
 
-// Manual admin verification route (for development/testing purposes only)
-app.post('/api/verify-admin', async (req, res) => {
-  console.log('Received manual admin verification request');
+app.get('/api/claims', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   try {
-    const { email, secretKey } = req.body;
-
-    // Check if the secret key matches (use a strong, unique key in production)
-    if (secretKey !== process.env.ADMIN_VERIFICATION_SECRET) {
-      return res.status(403).json({ error: 'Invalid secret key' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    if (!user.isAdmin) {
-      return res.status(403).json({ error: 'User is not an admin' });
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isEmailVerified: true, verificationToken: null },
-    });
-
-    res.json({ message: 'Admin account verified successfully' });
+    const claims = await prisma.claim.findMany();
+    res.json(claims);
   } catch (error) {
-    console.error('Error verifying admin account:', error);
-    res.status(500).json({ error: 'An error occurred while verifying the admin account' });
+    console.error('Error fetching claims:', error);
+    res.status(500).json({ error: 'An error occurred while fetching claims' });
+  }
+});
+
+app.get('/api/returns', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  try {
+    const returns = await prisma.return.findMany();
+    res.json(returns);
+  } catch (error) {
+    console.error('Error fetching returns:', error);
+    res.status(500).json({ error: 'An error occurred while fetching returns' });
   }
 });
 
@@ -346,32 +317,4 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-});
-
-// Create a verified admin user
-app.post('/api/create-verified-admin', async (req, res) => {
-  try {
-    const { email, password, secretKey } = req.body;
-
-    // Verify the secret key
-    if (secretKey !== process.env.ADMIN_CREATION_SECRET) {
-      return res.status(403).json({ error: 'Invalid secret key' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newAdmin = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        isAdmin: true,
-        isEmailVerified: true,
-      },
-    });
-
-    res.status(201).json({ message: 'Verified admin user created successfully', userId: newAdmin.id });
-  } catch (error) {
-    console.error('Error creating verified admin user:', error);
-    res.status(500).json({ error: 'An error occurred while creating the admin user' });
-  }
 });
