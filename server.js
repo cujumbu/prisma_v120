@@ -367,6 +367,33 @@ app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Create verified admin
+app.post('/api/create-verified-admin', async (req, res) => {
+  try {
+    const { email, password, secretKey } = req.body;
+
+    if (secretKey !== process.env.ADMIN_CREATION_SECRET) {
+      return res.status(403).json({ error: 'Invalid secret key' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const admin = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        isAdmin: true,
+        isEmailVerified: true,
+      },
+    });
+
+    res.status(201).json({ message: 'Verified admin created successfully' });
+  } catch (error) {
+    console.error('Error creating verified admin:', error);
+    res.status(500).json({ error: 'An error occurred while creating the verified admin' });
+  }
+});
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*', (req, res) => {
