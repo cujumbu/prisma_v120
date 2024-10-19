@@ -24,6 +24,12 @@ app.use(express.json());
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -37,6 +43,17 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// User existence check
+app.get('/api/users/check', async (req, res) => {
+  try {
+    const adminUser = await prisma.user.findFirst({ where: { isAdmin: true } });
+    res.json({ exists: !!adminUser });
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    res.status(500).json({ error: 'An error occurred while checking user existence' });
+  }
+});
 
 // User registration
 app.post('/api/register', async (req, res) => {
@@ -147,6 +164,31 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching tickets:', error);
     res.status(500).json({ error: 'An error occurred while fetching tickets' });
+  }
+});
+
+// Get a specific ticket
+app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const ticket = await prisma.ticket.findFirst({
+      where: { 
+        id,
+        userId,
+      },
+      include: { messages: true },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    res.json(ticket);
+  } catch (error) {
+    console.error('Error fetching ticket:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
   }
 });
 
