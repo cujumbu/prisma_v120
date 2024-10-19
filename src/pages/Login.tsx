@@ -12,9 +12,9 @@ const Login: React.FC = () => {
   const [showAdminVerification, setShowAdminVerification] = useState(false);
   const [adminSecretKey, setAdminSecretKey] = useState('');
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
   const { t } = useTranslation();
+  const location = useLocation();
 
   useEffect(() => {
     const checkUserExistence = async () => {
