@@ -74,12 +74,39 @@ const Login: React.FC = () => {
           login(data);
           navigate(data.user.isAdmin ? '/admin' : '/status');
         } else {
-          setError(data.error || t('invalidCredentials'));
+          if (data.error === 'Please verify your email before logging in') {
+            setError(t('pleaseVerifyEmail'));
+          } else {
+            setError(data.error || t('invalidCredentials'));
+          }
         }
       }
     } catch (error) {
       console.error('Login error:', error);
       setError(t('loginError'));
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch('/api/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setError(t('verificationEmailResent'));
+      } else {
+        setError(data.error || t('failedToResendVerification'));
+      }
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      setError(t('resendVerificationError'));
     }
   };
 
@@ -128,6 +155,14 @@ const Login: React.FC = () => {
           {isCreatingAdmin ? t('createAdminAccount') : t('login')}
         </button>
       </form>
+      {error === t('pleaseVerifyEmail') && (
+        <button
+          onClick={handleResendVerification}
+          className="mt-4 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-secondary hover:bg-secondary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
+        >
+          {t('resendVerificationEmail')}
+        </button>
+      )}
     </div>
   );
 };
