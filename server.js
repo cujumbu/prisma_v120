@@ -58,6 +58,28 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// Get single ticket route
+app.get('/api/tickets/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id },
+      include: { messages: true },
+    });
+
+    if (!ticket || ticket.userId !== userId) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    res.json(ticket);
+  } catch (error) {
+    console.error('Error fetching ticket:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the ticket' });
+  }
+});
+
 // User registration route
 app.post('/api/register', async (req, res) => {
   try {
