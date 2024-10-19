@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import cors from 'cors';
 import { sendClaimSubmissionEmail, sendClaimStatusUpdateEmail, sendVerificationEmail, sendTicketUpdateEmail } from './src/services/emailService.js';
+import { sendPasswordResetEmail } from './src/services/emailService.js';
 
 dotenv.config();
 
@@ -442,4 +443,28 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (user) {
+      const resetToken = crypto.randomBytes(20).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken, resetTokenExpiry },
+      });
+
+      await sendPasswordResetEmail(email, resetToken);
+    }
+
+    // Always return a success message to prevent email enumeration
+    res.json({ message: 'If an account exists for this email, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'An error occurred while processing your request' });
+  }
 });
