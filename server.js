@@ -29,17 +29,29 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (token == null) return res.sendStatus(401);
+  if (token == null) {
+    console.log('No token provided');
+    return res.sendStatus(401);
+  }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      console.log('Token verification failed:', err);
+      return res.sendStatus(403);
+    }
     req.user = user;
     next();
   });
 };
 
+// Debug route to check if the server is running
+app.get('/api/debug', (req, res) => {
+  res.json({ message: 'Server is running' });
+});
+
 // User registration route
 app.post('/api/register', async (req, res) => {
+  console.log('Received registration request:', req.body);
   try {
     const { email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -64,6 +76,7 @@ app.post('/api/register', async (req, res) => {
 
 // Email verification route
 app.get('/api/verify-email/:token', async (req, res) => {
+  console.log('Received email verification request:', req.params);
   try {
     const { token } = req.params;
     const user = await prisma.user.findFirst({ where: { verificationToken: token } });
@@ -84,8 +97,39 @@ app.get('/api/verify-email/:token', async (req, res) => {
   }
 });
 
+// Resend verification email
+app.post('/api/resend-verification', async (req, res) => {
+  console.log('Received resend verification request:', req.body);
+  try {
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+
+    const verificationToken = crypto.randomBytes(20).toString('hex');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verificationToken },
+    });
+
+    await sendVerificationEmail(email, verificationToken);
+
+    res.json({ message: 'Verification email resent successfully' });
+  } catch (error) {
+    console.error('Error resending verification email:', error);
+    res.status(500).json({ error: 'An error occurred while resending the verification email' });
+  }
+});
+
 // User login route
 app.post('/api/login', async (req, res) => {
+  console.log('Received login request:', req.body);
   try {
     const { email, password } = req.body;
     const user = await prisma.user.findUnique({ where: { email } });
@@ -106,6 +150,7 @@ app.post('/api/login', async (req, res) => {
 
 // Create a new ticket
 app.post('/api/tickets', authenticateToken, async (req, res) => {
+  console.log('Received create ticket request:', req.body);
   try {
     const { orderNumber, subject, message } = req.body;
     const userId = req.user.id;
@@ -149,6 +194,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
 
 // Get all tickets for a user
 app.get('/api/tickets', authenticateToken, async (req, res) => {
+  console.log('Received get tickets request for user:', req.user.id);
   try {
     const userId = req.user.id;
     const tickets = await prisma.ticket.findMany({
@@ -164,6 +210,7 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 
 // Add a message to a ticket
 app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
+  console.log('Received add message request:', req.params, req.body);
   try {
     const { id } = req.params;
     const { message } = req.body;
@@ -200,6 +247,7 @@ app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
 
 // Admin routes for managing tickets
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
+  console.log('Received admin get tickets request');
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
@@ -217,6 +265,7 @@ app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
 
 // Admin route to get a specific ticket
 app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+  console.log('Received admin get specific ticket request:', req.params);
   try {
     if (!req.user.isAdmin) {
       return res.status(403).json({ error: 'Access denied' });
@@ -244,6 +293,7 @@ app.get('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => {
+  console.log('Received admin reply to ticket request:', req.params, req.body);
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
@@ -284,6 +334,7 @@ app.post('/api/admin/tickets/:id/reply', authenticateToken, async (req, res) => 
 });
 
 app.patch('/api/admin/tickets/:id/close', authenticateToken, async (req, res) => {
+  console.log('Received admin close ticket request:', req.params);
   if (!req.user.isAdmin) {
     return res.status(403).json({ error: 'Access denied' });
   }
