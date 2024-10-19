@@ -33,6 +33,7 @@ const CreateTicket: React.FC = () => {
       if (response.ok) {
         navigate(`/tickets/${data.id}`);
       } else {
+        console.error('Error creating ticket:', data);
         setError(data.error || t('failedToCreateTicket'));
       }
     } catch (error) {
