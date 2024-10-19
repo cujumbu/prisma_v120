@@ -57,7 +57,7 @@ const AdminDashboard: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<Claim | Return | Ticket | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'claims' | 'returns' | 'tickets'>('claims');
-  const [ticketReply, setTicketReply] = useState<string>('');
+  const [replyMessage, setReplyMessage] = useState<string>('');
   const { user } = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -69,7 +69,6 @@ const AdminDashboard: React.FC = () => {
     }
 
     const fetchData = async () => {
-      setIsLoading(true);
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -105,8 +104,6 @@ const AdminDashboard: React.FC = () => {
         if (error instanceof Error && error.message === 'No authentication token found') {
           navigate('/login');
         }
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -250,7 +247,7 @@ const AdminDashboard: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ message: ticketReply }),
+        body: JSON.stringify({ message: replyMessage }),
       });
 
       if (!response.ok) {
@@ -259,10 +256,15 @@ const AdminDashboard: React.FC = () => {
 
       const updatedTicket = await response.json();
       setTickets(prevTickets => prevTickets.map(ticket =>
-        ticket.id === id ? { ...ticket, status: 'Awaiting User Reply' } : ticket
+        ticket.id === id ? { ...ticket, status: 'Awaiting User Reply', messages: [...ticket.messages, updatedTicket] } : ticket
       ));
-      setSelectedItem(null);
-      setTicketReply('');
+      setSelectedItem(prevItem => {
+        if (prevItem && 'messages' in prevItem) {
+          return { ...prevItem, status: 'Awaiting User Reply', messages: [...prevItem.messages, updatedTicket] };
+        }
+        return prevItem;
+      });
+      setReplyMessage('');
     } catch (error) {
       console.error('Error replying to ticket:', error);
       if (error instanceof Error && error.message === 'No authentication token found') {
@@ -273,12 +275,8 @@ const AdminDashboard: React.FC = () => {
 
   const closeModal = () => {
     setSelectedItem(null);
-    setTicketReply('');
+    setReplyMessage('');
   };
-
-  if (isLoading) {
-    return <div className="text-center mt-8">{t('loading')}</div>;
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -460,27 +458,24 @@ const AdminDashboard: React.FC = () => {
                       </p>
                     </>
                   )}
-                  {'subject' in selectedItem && (
+                  {'messages' in selectedItem && (
                     <>
-                      <p className="text-sm text-gray-500">
-                        <strong>{t('subject')}:</strong> {selectedItem.subject}
-                      </p>
-                      {selectedItem.messages && selectedItem.messages.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-900">{t('messages')}:</h4>
-                          {selectedItem.messages.map((message: any, index: number) => (
-                            <div key={index} className="mt-2 text-sm text-gray-500">
-                              <p><strong>{message.isAdminReply ? t('admin') : t('user')}:</strong> {message.content}</p>
-                              <p className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-900">{t('messages')}:</h4>
+                        {selectedItem.messages.map((message, index) => (
+                          <div key={index} className={`mt-2 p-2 rounded ${message.isAdminReply ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                            <p className="text-sm text-gray-800">{message.content}</p>
+                            <p className="text-xs text-gray-500">
+                              {message.isAdminReply ? t('adminReply') : t('userMessage')} - {new Date(message.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                       {selectedItem.status !== 'Closed' && (
                         <div className="mt-4">
                           <textarea
-                            value={ticketReply}
-                            onChange={(e) => setTicketReply(e.target.value)}
+                            value={replyMessage}
+                            onChange={(e) => setReplyMessage(e.target.value)}
                             placeholder={t('typeYourReply')}
                             className="w-full p-2 border rounded"
                             rows={3}
