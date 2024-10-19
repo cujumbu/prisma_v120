@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -48,6 +48,33 @@ const Login: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError(t('pleaseEnterEmail'));
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        alert(t('passwordResetEmailSent'));
+      } else {
+        const data = await response.json();
+        setError(data.error || t('forgotPasswordError'));
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      setError(t('forgotPasswordError'));
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto mt-8 bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">{t('login')}</h2>
@@ -87,6 +114,22 @@ const Login: React.FC = () => {
           {isSubmitting ? t('loggingIn') : t('login')}
         </button>
       </form>
+      <div className="mt-4 text-center">
+        <button
+          onClick={handleForgotPassword}
+          className="text-sm text-primary hover:text-primary-dark"
+        >
+          {t('forgotPassword')}
+        </button>
+      </div>
+      <div className="mt-4 text-center">
+        <p className="text-sm text-gray-600">
+          {t('dontHaveAccount')}{' '}
+          <Link to="/register" className="text-primary hover:text-primary-dark">
+            {t('registerHere')}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };
