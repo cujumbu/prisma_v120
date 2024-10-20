@@ -451,20 +451,67 @@ app.post('/api/create-verified-admin', async (req, res) => {
   }
 });
 
-// Add the new route for checking ticket updates
+// Update the route for checking ticket updates
 app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    const hasUpdates = await prisma.ticket.findFirst({
+    const latestTicket = await prisma.ticket.findFirst({
       where: {
         userId: userId,
-        status: 'Awaiting User Reply'
+        status: { not: 'Open' }, // Exclude 'Open' status
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      select: {
+        id: true,
+        status: true,
+        updatedAt: true
       }
     });
-    res.json({ hasUpdates: !!hasUpdates });
+
+    // Check if the user has viewed this update
+    const hasUnviewedUpdate = latestTicket && await prisma.ticketView.findFirst({
+      where: {
+        userId: userId,
+        ticketId: latestTicket.id,
+        viewedAt: {
+          gte: latestTicket.updatedAt
+        }
+      }
+    }) === null;
+
+    res.json({ 
+      hasUpdates: !!hasUnviewedUpdate,
+      latestTicket: latestTicket ? {
+        id: latestTicket.id,
+        status: latestTicket.status
+      } : null
+    });
   } catch (error) {
     console.error('Error checking for ticket updates:', error);
     res.status(500).json({ error: 'An error occurred while checking for updates' });
+  }
+});
+
+// Add a new route to mark a ticket as viewed
+app.post('/api/tickets/:id/view', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    await prisma.ticketView.create({
+      data: {
+        userId,
+        ticketId: id,
+        viewedAt: new Date()
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking ticket as viewed:', error);
+    res.status(500).json({ error: 'An error occurred while marking the ticket as viewed' });
   }
 });
 
