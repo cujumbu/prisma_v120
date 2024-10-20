@@ -38,7 +38,7 @@ const ClaimStatus: React.FC = () => {
       setCaseData(data);
     } catch (error) {
       console.error('Error fetching case:', error);
-      setError(t(error.message));
+      setError(t(error instanceof Error ? error.message : 'errorFetchingCase'));
     }
   };
 
@@ -48,15 +48,12 @@ const ClaimStatus: React.FC = () => {
     setCaseData(null);
     try {
       const response = await fetch(`/api/cases?orderNumber=${orderNumber}&email=${email}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'errorFetchingCase');
-      }
       const data = await response.json();
-      if (data) {
+
+      if (response.ok) {
         setCaseData(data);
       } else {
-        setError(t('noCaseFound'));
+        setError(t(data.error));
       }
     } catch (error) {
       console.error('Error fetching case:', error);
