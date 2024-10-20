@@ -155,5 +155,8 @@
   "loginToAccessAllFeatures": "Log in to access all features including submitting tickets, creating warranty claims, and initiating returns.",
   "loginToAccess": "Log in to Access",
   "loginToSubmitWarrantyCase": "Log in to Submit Warranty Case",
-  "loginToCreateReturn": "Log in to Create Return"
+  "loginToCreateReturn": "Log in to Create Return",
+  "checkCaseStatus": "Check Case Status",
+  "errorFetchingCase": "An error occurred while fetching the case. Please try again.",
+  "noCaseFound": "No case found with the provided order number and email. Please check your information and try again."
 }
