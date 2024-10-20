@@ -10,6 +10,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  isAdmin         Boolean   @default(false)
+  isEmailVerified Boolean   @default(false)
+  verificationToken String?
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  tickets         Ticket[]
+  claims          Claim[]
+  returns         Return[]
+  ticketViews     TicketView[]
+}
+
 model Claim {
   id                      String   @id @default(uuid())
   orderNumber             String   @unique
@@ -26,21 +41,6 @@ model Claim {
   notificationAcknowledged Boolean  @default(false)
   userId                  String
   user                    User     @relation(fields: [userId], references: [id])
-}
-
-model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  password        String
-  isAdmin         Boolean   @default(false)
-  isEmailVerified Boolean   @default(false)
-  verificationToken String?
-  resetToken      String?
-  resetTokenExpiry DateTime?
-  tickets         Ticket[]
-  claims          Claim[]
-  returns         Return[]
-  ticketViews     TicketView[]
 }
 
 model Brand {
