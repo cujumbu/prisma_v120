@@ -33,9 +33,8 @@ const Header: React.FC = () => {
             setHasUpdates(data.hasUpdates);
             setLatestTicket(data.latestTicket);
           } else {
-            const errorText = await response.text();
-            console.error('Failed to check for updates:', response.statusText);
-            console.error('Error details:', errorText);
+            const errorData = await response.json();
+            console.error('Failed to check for updates:', errorData.error);
           }
         } catch (error) {
           console.error('Error checking for ticket updates:', error);
