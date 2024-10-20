@@ -140,5 +140,12 @@
   "registerHere": "Register here",
   "pleaseEnterEmail": "Please enter your email address",
   "passwordResetEmailSent": "If an account exists for this email, a password reset link has been sent.",
-  "forgotPasswordError": "An error occurred while processing your request. Please try again."
+  "forgotPasswordError": "An error occurred while processing your request. Please try again.",
+  "registrationSuccessful": "Registration successful! Please check your email to verify your account.",
+  "pleaseCheckEmailAndVerify": "Please check your email and verify your account before logging in.",
+  "loginSuccessful": "Login successful! Welcome to the support portal.",
+  "yourOptions": "Your Options",
+  "submitTicketDescription": "Submit a support ticket for any questions or issues.",
+  "createClaimDescription": "Create a warranty claim for product-related issues.",
+  "createReturnDescription": "Initiate a return for products you wish to send back."
 }
