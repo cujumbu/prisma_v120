@@ -423,6 +423,7 @@ app.get('/api/brands', async (req, res) => {
     res.status(500).json({ error: 'An error occurred while fetching brands' });
   }
 });
+
 // Create verified admin
 app.post('/api/create-verified-admin', async (req, res) => {
   try {
@@ -447,6 +448,36 @@ app.post('/api/create-verified-admin', async (req, res) => {
   } catch (error) {
     console.error('Error creating verified admin:', error);
     res.status(500).json({ error: 'An error occurred while creating the verified admin' });
+  }
+});
+
+// Add the missing /api/claims route
+app.post('/api/claims', async (req, res) => {
+  try {
+    const { orderNumber, email, name, street, postalCode, city, phoneNumber, brand, problemDescription, notificationAcknowledged } = req.body;
+
+    const newClaim = await prisma.claim.create({
+      data: {
+        orderNumber,
+        email,
+        name,
+        street,
+        postalCode,
+        city,
+        phoneNumber,
+        brand,
+        problemDescription,
+        status: 'Pending',
+        notificationAcknowledged,
+      },
+    });
+
+    await sendClaimSubmissionEmail(email, newClaim);
+
+    res.status(201).json(newClaim);
+  } catch (error) {
+    console.error('Error creating claim:', error);
+    res.status(500).json({ error: 'An error occurred while creating the claim' });
   }
 });
 
