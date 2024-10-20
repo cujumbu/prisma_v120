@@ -269,6 +269,8 @@ const AdminDashboard: React.FC = () => {
       // Send email notification to the user
       if (updatedTicket.user && updatedTicket.user.email) {
         await sendStatusUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber, 'Awaiting User Reply');
+      } else {
+        console.error('User email not found for ticket:', updatedTicket.id);
       }
     } catch (error) {
       console.error('Error replying to ticket:', error);
