@@ -7,6 +7,7 @@ const Register: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -14,6 +15,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsLoading(true);
 
     if (password !== confirmPassword) {
@@ -34,7 +36,10 @@ const Register: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        navigate('/login', { state: { message: t('registrationSuccessful') } });
+        setSuccess(t('registrationSuccessful'));
+        setTimeout(() => {
+          navigate('/login', { state: { message: t('pleaseCheckEmailAndVerify') } });
+        }, 3000);
       } else {
         setError(data.error || t('registrationFailed'));
       }
@@ -50,6 +55,7 @@ const Register: React.FC = () => {
     <div className="max-w-md mx-auto mt-8 bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">{t('register')}</h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {success && <p className="text-green-500 mb-4">{success}</p>}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
