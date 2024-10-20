@@ -101,7 +101,7 @@ app.post('/api/login', async (req, res) => {
       }
       const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
       res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
-    } else {
+    }else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
   } catch (error) {
