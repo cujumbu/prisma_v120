@@ -451,8 +451,8 @@ app.post('/api/create-verified-admin', async (req, res) => {
   }
 });
 
-// Add the missing /api/claims route
-app.post('/api/claims', async (req, res) => {
+// Update the claims route to require authentication
+app.post('/api/claims', authenticateToken, async (req, res) => {
   try {
     const { orderNumber, email, name, street, postalCode, city, phoneNumber, brand, problemDescription, notificationAcknowledged } = req.body;
 
@@ -469,6 +469,7 @@ app.post('/api/claims', async (req, res) => {
         problemDescription,
         status: 'Pending',
         notificationAcknowledged,
+        userId: req.user.id, // Add the user ID to the claim
       },
     });
 
@@ -478,6 +479,32 @@ app.post('/api/claims', async (req, res) => {
   } catch (error) {
     console.error('Error creating claim:', error);
     res.status(500).json({ error: 'An error occurred while creating the claim' });
+  }
+});
+
+// Add a new route for returns that requires authentication
+app.post('/api/returns', authenticateToken, async (req, res) => {
+  try {
+    const { orderNumber, email, reason, description } = req.body;
+
+    const newReturn = await prisma.return.create({
+      data: {
+        orderNumber,
+        email,
+        reason,
+        description,
+        status: 'Pending',
+        userId: req.user.id, // Add the user ID to the return
+      },
+    });
+
+    // You may want to add an email notification for return submission as well
+    // await sendReturnSubmissionEmail(email, newReturn);
+
+    res.status(201).json(newReturn);
+  } catch (error) {
+    console.error('Error creating return:', error);
+    res.status(500).json({ error: 'An error occurred while creating the return' });
   }
 });
 
