@@ -20,3 +20,12 @@ END $$;
 -- Now make the userId column required
 ALTER TABLE "Claim" ALTER COLUMN "userId" SET NOT NULL;
 ALTER TABLE "Return" ALTER COLUMN "userId" SET NOT NULL;
+
+-- Add foreign key constraints if they don't exist
+ALTER TABLE "Claim"
+ADD CONSTRAINT IF NOT EXISTS "Claim_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "Return"
+ADD CONSTRAINT IF NOT EXISTS "Return_userId_fkey"
+FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
