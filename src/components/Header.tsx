@@ -17,6 +17,10 @@ const Header: React.FC = () => {
       if (user) {
         try {
           const token = localStorage.getItem('token');
+          if (!token) {
+            console.error('No token found');
+            return;
+          }
           const response = await fetch('/api/tickets/updates', {
             headers: {
               'Authorization': `Bearer ${token}`,
