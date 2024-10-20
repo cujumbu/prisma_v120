@@ -309,10 +309,10 @@ app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
           },
         } : undefined,
       },
-      include: { messages: true, user: true },
+      include: { messages: true },
     });
 
-    if (message && ticket.user) {
+    if (message) {
       await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
     }
 
@@ -448,6 +448,23 @@ app.post('/api/create-verified-admin', async (req, res) => {
   } catch (error) {
     console.error('Error creating verified admin:', error);
     res.status(500).json({ error: 'An error occurred while creating the verified admin' });
+  }
+});
+
+// New endpoint for checking ticket updates
+app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const hasUpdates = await prisma.ticket.findFirst({
+      where: {
+        userId: userId,
+        status: 'Awaiting User Reply'
+      }
+    });
+    res.json({ hasUpdates: !!hasUpdates });
+  } catch (error) {
+    console.error('Error checking for ticket updates:', error);
+    res.status(500).json({ error: 'An error occurred while checking for updates' });
   }
 });
 
