@@ -451,23 +451,6 @@ app.post('/api/create-verified-admin', async (req, res) => {
   }
 });
 
-// New endpoint for checking ticket updates
-app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const hasUpdates = await prisma.ticket.findFirst({
-      where: {
-        userId: userId,
-        status: 'Awaiting User Reply'
-      }
-    });
-    res.json({ hasUpdates: !!hasUpdates });
-  } catch (error) {
-    console.error('Error checking for ticket updates:', error);
-    res.status(500).json({ error: 'An error occurred while checking for updates' });
-  }
-});
-
 app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
