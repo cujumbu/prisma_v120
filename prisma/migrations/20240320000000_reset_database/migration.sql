@@ -11,6 +11,9 @@ DROP TABLE IF EXISTS "Brand";
 DROP TABLE IF EXISTS "Claim";
 DROP TABLE IF EXISTS "User";
 
+-- Drop the _prisma_migrations table
+DROP TABLE IF EXISTS "_prisma_migrations";
+
 -- Recreate tables
 
 CREATE TABLE "User" (
@@ -124,8 +127,3 @@ ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_userId_fkey" FOREIGN KEY ("userId") 
 ALTER TABLE "Message" ADD CONSTRAINT "Message_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "TicketView" ADD CONSTRAINT "TicketView_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "TicketView" ADD CONSTRAINT "TicketView_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "Ticket"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- Reset the _prisma_migrations table
-TRUNCATE TABLE "_prisma_migrations";
-INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
-VALUES ('20240320000000_reset_database', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', CURRENT_TIMESTAMP, '20240320000000_reset_database', NULL, NULL, CURRENT_TIMESTAMP, 1);
