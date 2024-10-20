@@ -25,6 +25,8 @@ const Header: React.FC = () => {
           if (response.ok) {
             const data = await response.json();
             setHasUpdates(data.hasUpdates);
+          } else {
+            console.error('Failed to check for updates:', response.statusText);
           }
         } catch (error) {
           console.error('Error checking for ticket updates:', error);
