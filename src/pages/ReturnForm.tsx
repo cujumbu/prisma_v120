@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import FAQSection from '../components/FAQSection';
 
 interface ReturnFormData {
@@ -12,6 +13,8 @@ interface ReturnFormData {
 
 const ReturnForm: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<ReturnFormData>({
     orderNumber: '',
     email: '',
@@ -21,7 +24,12 @@ const ReturnForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [faqCompleted, setFaqCompleted] = useState(false);
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login', { state: { from: '/return' } });
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -34,21 +42,39 @@ const ReturnForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('/api/returns', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });
-      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(data.error || data.details || t('failedToSubmitReturn'));
+        const errorText = await response.text();
+        console.error('Server response:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       navigate('/status', { state: { returnId: data.id } });
     } catch (error) {
       console.error('Error submitting return:', error);
-      setError(error.message || t('errorSubmittingReturn'));
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+      }
+      if (error instanceof Response) {
+        console.error('Response status:', error.status);
+        error.text().then(text => console.error('Response text:', text));
+      }
+      setError(error instanceof Error ? error.message : t('errorSubmittingReturn'));
     } finally {
       setIsSubmitting(false);
     }
