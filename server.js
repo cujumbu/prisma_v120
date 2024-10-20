@@ -507,6 +507,38 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/cases', authenticateToken, async (req, res) => {
+  try {
+    const { orderNumber, email } = req.query;
+
+    const claim = await prisma.claim.findFirst({
+      where: {
+        orderNumber,
+        email,
+      },
+    });
+
+    if (claim) {
+      return res.json({ ...claim, type: 'claim' });
+    }
+
+    const returnCase = await prisma.return.findFirst({
+      where: {
+        orderNumber,
+        email,
+      },
+    });
+
+    if (returnCase) {
+      return res.json({ ...returnCase, type: 'return' });
+    }
+
+    res.status(404).json({ error: 'No case found with the provided order number and email.' });
+  } catch (error) {
+    console.error('Error fetching case:', error);
+    res.status(500).json({ error: 'An error occurred while fetching the case.' });
+  }
+});
 
 // Add a new route to mark a ticket as viewed
 app.post('/api/tickets/:id/view', authenticateToken, async (req, res) => {
