@@ -67,14 +67,26 @@ const ClaimForm: React.FC = () => {
         },
         body: JSON.stringify({ ...formData, notificationAcknowledged }),
       });
-      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(data.error || data.details || t('failedToSubmitClaim'));
+        const errorText = await response.text();
+        console.error('Server response:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       navigate('/status', { state: { claimId: data.id } });
     } catch (error) {
       console.error('Error submitting claim:', error);
-      setError(error.message || t('errorSubmittingClaim'));
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+      }
+      if (error instanceof Response) {
+        console.error('Response status:', error.status);
+        error.text().then(text => console.error('Response text:', text));
+      }
+      setError(error instanceof Error ? error.message : t('errorSubmittingClaim'));
     } finally {
       setIsSubmitting(false);
     }
