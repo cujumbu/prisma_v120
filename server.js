@@ -101,7 +101,7 @@ app.post('/api/login', async (req, res) => {
       }
       const token = jwt.sign({ id: user.id, email: user.email, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '1h' });
       res.json({ token, user: { id: user.id, email: user.email, isAdmin: user.isAdmin } });
-    }else {
+    } else {
       res.status(401).json({ error: 'Invalid credentials' });
     }
   } catch (error) {
@@ -228,49 +228,40 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 });
 
 // Add a message to a ticket
-app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
-  if (!req.user.isAdmin) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
+app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, message } = req.body;
+    const { message } = req.body;
+    const userId = req.user.id;
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: { user: true },
     });
 
-    if (!ticket) {
+    if (!ticket || ticket.userId !== userId) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    const updatedTicket = await prisma.ticket.update({
-      where: { id },
+    const newMessage = await prisma.message.create({
       data: {
-        status,
-        messages: message ? {
-          create: {
-            content: message,
-            isAdminReply: true,
-          },
-        } : undefined,
+        content: message,
+        isAdminReply: false,
+        ticketId: id,
       },
-      include: { messages: true, user: true },
     });
 
-    if (message && updatedTicket.user && updatedTicket.user.email) {
-      await sendTicketUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber);
-    }
+    await prisma.ticket.update({
+      where: { id },
+      data: { status: 'Awaiting Admin Reply' },
+    });
 
-    res.json(updatedTicket);
+    res.status(201).json(newMessage);
   } catch (error) {
-    console.error('Error updating ticket:', error);
-    res.status(500).json({ error: 'An error occurred while updating the ticket' });
+    console.error('Error adding message to ticket:', error);
+    res.status(500).json({ error: 'An error occurred while adding the message' });
   }
 });
-
 
 // Admin routes for managing tickets, claims, and returns
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
@@ -467,7 +458,7 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
     const latestTicket = await prisma.ticket.findFirst({
       where: {
         userId: userId,
-        status: { not: 'Closed' },
+        status: { not: 'Open' }, // Exclude 'Open' status
       },
       orderBy: {
         updatedAt: 'desc'
@@ -479,27 +470,23 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
       }
     });
 
-    if (!latestTicket) {
-      return res.json({ hasUpdates: false, latestTicket: null });
-    }
-
     // Check if the user has viewed this update
-    const hasUnviewedUpdate = await prisma.ticketView.findFirst({
+    const hasUnviewedUpdate = latestTicket && await prisma.ticketView.findFirst({
       where: {
         userId: userId,
         ticketId: latestTicket.id,
         viewedAt: {
-          lt: latestTicket.updatedAt
+          gte: latestTicket.updatedAt
         }
       }
     }) === null;
 
     res.json({ 
-      hasUpdates: hasUnviewedUpdate,
-      latestTicket: {
+      hasUpdates: !!hasUnviewedUpdate,
+      latestTicket: latestTicket ? {
         id: latestTicket.id,
         status: latestTicket.status
-      }
+      } : null
     });
   } catch (error) {
     console.error('Error checking for ticket updates:', error);
@@ -507,7 +494,29 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/cases', authenticateToken, async (req, res) => {
+// Add a new route to mark a ticket as viewed
+app.post('/api/tickets/:id/view', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    await prisma.ticketView.create({
+      data: {
+        userId,
+        ticketId: id,
+        viewedAt: new Date()
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking ticket as viewed:', error);
+    res.status(500).json({ error: 'An error occurred while marking the ticket as viewed' });
+  }
+});
+
+// Remove the authenticateToken middleware from this route
+app.get('/api/cases', async (req, res) => {
   try {
     const { orderNumber, email } = req.query;
 
@@ -533,31 +542,11 @@ app.get('/api/cases', authenticateToken, async (req, res) => {
       return res.json({ ...returnCase, type: 'return' });
     }
 
-    res.status(404).json({ error: 'No case found with the provided order number and email.' });
+    // If no case is found, return a 404 status
+    return res.status(404).json({ error: 'noCaseFound' });
   } catch (error) {
     console.error('Error fetching case:', error);
-    res.status(500).json({ error: 'An error occurred while fetching the case.' });
-  }
-});
-
-// Add a new route to mark a ticket as viewed
-app.post('/api/tickets/:id/view', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    await prisma.ticketView.create({
-      data: {
-        userId,
-        ticketId: id,
-        viewedAt: new Date()
-      }
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error marking ticket as viewed:', error);
-    res.status(500).json({ error: 'An error occurred while marking the ticket as viewed' });
+    res.status(500).json({ error: 'errorFetchingCase' });
   }
 });
 
