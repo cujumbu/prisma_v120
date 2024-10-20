@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import BrandSelector from '../components/BrandSelector';
 import FAQSection from '../components/FAQSection';
 
@@ -18,6 +19,8 @@ interface ClaimFormData {
 
 const ClaimForm: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<ClaimFormData>({
     orderNumber: '',
     email: '',
@@ -33,7 +36,12 @@ const ClaimForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [faqCompleted, setFaqCompleted] = useState(false);
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login', { state: { from: '/claim' } });
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -60,10 +68,16 @@ const ClaimForm: React.FC = () => {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const response = await fetch('/api/claims', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ ...formData, notificationAcknowledged }),
       });
