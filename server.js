@@ -451,6 +451,7 @@ app.post('/api/create-verified-admin', async (req, res) => {
   }
 });
 
+// Add the new route for checking ticket updates
 app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
