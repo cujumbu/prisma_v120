@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Menu, X } from 'lucide-react';
+import { ShieldCheck, Menu, X, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -8,8 +8,36 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [hasUpdates, setHasUpdates] = useState(false);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      if (user) {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('/api/tickets/updates', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setHasUpdates(data.hasUpdates);
+          }
+        } catch (error) {
+          console.error('Error checking for ticket updates:', error);
+        }
+      }
+    };
+
+    checkForUpdates();
+    // Set up an interval to check for updates every 5 minutes
+    const interval = setInterval(checkForUpdates, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const NavLinks = () => (
     <>
@@ -18,11 +46,16 @@ const Header: React.FC = () => {
       <li><Link to="/return" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('newReturn')}</Link></li>
       <li><Link to="/faq" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('faq')}</Link></li>
       <li><Link to="/status" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('checkStatus')}</Link></li>
-      {user && (
-        <li><Link to="/tickets" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('supportTickets')}</Link></li>
-      )}
       {user ? (
         <>
+          <li>
+            <Link to="/tickets" className="block py-2 hover:text-gray-300 relative" onClick={toggleMenu}>
+              {t('supportTickets')}
+              {hasUpdates && (
+                <Bell className="inline-block ml-2 text-yellow-400" size={16} />
+              )}
+            </Link>
+          </li>
           {user.isAdmin && (
             <li><Link to="/admin" className="block py-2 hover:text-gray-300" onClick={toggleMenu}>{t('admin')}</Link></li>
           )}
