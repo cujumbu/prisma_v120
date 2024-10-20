@@ -467,7 +467,7 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
     const latestTicket = await prisma.ticket.findFirst({
       where: {
         userId: userId,
-        status: { not: 'Open' }, // Exclude 'Open' status
+        status: { not: 'Closed' },
       },
       orderBy: {
         updatedAt: 'desc'
@@ -479,29 +479,34 @@ app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
       }
     });
 
+    if (!latestTicket) {
+      return res.json({ hasUpdates: false, latestTicket: null });
+    }
+
     // Check if the user has viewed this update
-    const hasUnviewedUpdate = latestTicket && await prisma.ticketView.findFirst({
+    const hasUnviewedUpdate = await prisma.ticketView.findFirst({
       where: {
         userId: userId,
         ticketId: latestTicket.id,
         viewedAt: {
-          gte: latestTicket.updatedAt
+          lt: latestTicket.updatedAt
         }
       }
     }) === null;
 
     res.json({ 
-      hasUpdates: !!hasUnviewedUpdate,
-      latestTicket: latestTicket ? {
+      hasUpdates: hasUnviewedUpdate,
+      latestTicket: {
         id: latestTicket.id,
         status: latestTicket.status
-      } : null
+      }
     });
   } catch (error) {
     console.error('Error checking for ticket updates:', error);
     res.status(500).json({ error: 'An error occurred while checking for updates' });
   }
 });
+
 
 // Add a new route to mark a ticket as viewed
 app.post('/api/tickets/:id/view', authenticateToken, async (req, res) => {
