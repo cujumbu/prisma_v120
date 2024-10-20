@@ -228,40 +228,49 @@ app.get('/api/tickets', authenticateToken, async (req, res) => {
 });
 
 // Add a message to a ticket
-app.post('/api/tickets/:id/messages', authenticateToken, async (req, res) => {
+app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
+  if (!req.user.isAdmin) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   try {
     const { id } = req.params;
-    const { message } = req.body;
-    const userId = req.user.id;
+    const { status, message } = req.body;
 
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: { user: true },
     });
 
-    if (!ticket || ticket.userId !== userId) {
+    if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
-    const newMessage = await prisma.message.create({
-      data: {
-        content: message,
-        isAdminReply: false,
-        ticketId: id,
-      },
-    });
-
-    await prisma.ticket.update({
+    const updatedTicket = await prisma.ticket.update({
       where: { id },
-      data: { status: 'Awaiting Admin Reply' },
+      data: {
+        status,
+        messages: message ? {
+          create: {
+            content: message,
+            isAdminReply: true,
+          },
+        } : undefined,
+      },
+      include: { messages: true, user: true },
     });
 
-    res.status(201).json(newMessage);
+    if (message && updatedTicket.user && updatedTicket.user.email) {
+      await sendTicketUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber);
+    }
+
+    res.json(updatedTicket);
   } catch (error) {
-    console.error('Error adding message to ticket:', error);
-    res.status(500).json({ error: 'An error occurred while adding the message' });
+    console.error('Error updating ticket:', error);
+    res.status(500).json({ error: 'An error occurred while updating the ticket' });
   }
 });
+
 
 // Admin routes for managing tickets, claims, and returns
 app.get('/api/admin/tickets', authenticateToken, async (req, res) => {
