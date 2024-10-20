@@ -24,8 +24,8 @@ model Claim {
   status                  String
   submissionDate          DateTime @default(now())
   notificationAcknowledged Boolean  @default(false)
-  userId                  String
-  user                    User     @relation(fields: [userId], references: [id])
+  userId                  String?  // Make it optional initially
+  user                    User?    @relation(fields: [userId], references: [id])
 }
 
 model User {
@@ -66,8 +66,8 @@ model Return {
   description     String
   status          String
   submissionDate  DateTime @default(now())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  userId          String?  // Make it optional initially
+  user            User?    @relation(fields: [userId], references: [id])
 }
 
 model FAQ {
