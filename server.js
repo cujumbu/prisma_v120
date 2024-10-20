@@ -508,6 +508,23 @@ app.post('/api/returns', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const tickets = await prisma.ticket.findMany({
+      where: {
+        userId: userId,
+        status: 'Awaiting User Reply'
+      }
+    });
+    
+    res.json({ hasUpdates: tickets.length > 0 });
+  } catch (error) {
+    console.error('Error checking for ticket updates:', error);
+    res.status(500).json({ error: 'An error occurred while checking for updates' });
+  }
+});
+
 // The "catchall" handler: for any request that doesn't
 // match one above, send back React's index.html file.
 app.get('*', (req, res) => {
