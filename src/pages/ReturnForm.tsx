@@ -141,7 +141,36 @@ const ReturnForm: React.FC = () => {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50 bg-gray-100"
               />
             </div>
-            {/* ... (rest of the form fields) ... */}
+            <div>
+              <label htmlFor="reason" className="block text-sm font-medium text-gray-700">{t('returnReason')}</label>
+              <select
+                id="reason"
+                name="reason"
+                value={formData.reason}
+                onChange={handleChange}
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              >
+                <option value="">{t('selectReason')}</option>
+                <option value="wrong_size">{t('wrongSize')}</option>
+                <option value="defective">{t('defective')}</option>
+                <option value="not_as_described">{t('notAsDescribed')}</option>
+                <option value="changed_mind">{t('changedMind')}</option>
+                <option value="other">{t('other')}</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">{t('returnDescription')}</label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+                rows={4}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
+              ></textarea>
+            </div>
             <button
               type="submit"
               disabled={isSubmitting}
