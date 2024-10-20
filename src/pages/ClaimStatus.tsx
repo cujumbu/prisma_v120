@@ -53,10 +53,14 @@ const ClaimStatus: React.FC = () => {
         throw new Error(errorData.error || 'errorFetchingCase');
       }
       const data = await response.json();
-      setCaseData(data);
+      if (data) {
+        setCaseData(data);
+      } else {
+        setError(t('noCaseFound'));
+      }
     } catch (error) {
       console.error('Error fetching case:', error);
-      setError(t(error.message));
+      setError(t('errorFetchingCase'));
     }
   };
 
