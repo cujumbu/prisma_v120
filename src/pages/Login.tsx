@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -7,11 +7,19 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
+
+  useEffect(() => {
+    const message = location.state?.message;
+    if (message) {
+      setSuccess(message);
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -32,7 +40,7 @@ const Login: React.FC = () => {
       if (response.ok) {
         login(data);
         const { from } = location.state as { from?: string } || { from: '/' };
-        navigate(from);
+        navigate(from, { state: { message: t('loginSuccessful') } });
       } else {
         if (data.error === 'Please verify your email before logging in') {
           setError(t('pleaseVerifyEmail'));
@@ -79,6 +87,7 @@ const Login: React.FC = () => {
     <div className="max-w-md mx-auto mt-8 bg-white p-6 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4 text-gray-800">{t('login')}</h2>
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {success && <p className="text-green-500 mb-4">{success}</p>}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
