@@ -309,10 +309,10 @@ app.patch('/api/admin/tickets/:id', authenticateToken, async (req, res) => {
           },
         } : undefined,
       },
-      include: { messages: true },
+      include: { messages: true, user: true },
     });
 
-    if (message) {
+    if (message && ticket.user) {
       await sendTicketUpdateEmail(ticket.user.email, ticket.orderNumber);
     }
 
@@ -448,80 +448,6 @@ app.post('/api/create-verified-admin', async (req, res) => {
   } catch (error) {
     console.error('Error creating verified admin:', error);
     res.status(500).json({ error: 'An error occurred while creating the verified admin' });
-  }
-});
-
-// Update the claims route to require authentication
-app.post('/api/claims', authenticateToken, async (req, res) => {
-  try {
-    const { orderNumber, email, name, street, postalCode, city, phoneNumber, brand, problemDescription, notificationAcknowledged } = req.body;
-
-    const newClaim = await prisma.claim.create({
-      data: {
-        orderNumber,
-        email,
-        name,
-        street,
-        postalCode,
-        city,
-        phoneNumber,
-        brand,
-        problemDescription,
-        status: 'Pending',
-        notificationAcknowledged,
-        userId: req.user.id, // Add the user ID to the claim
-      },
-    });
-
-    await sendClaimSubmissionEmail(email, newClaim);
-
-    res.status(201).json(newClaim);
-  } catch (error) {
-    console.error('Error creating claim:', error);
-    res.status(500).json({ error: 'An error occurred while creating the claim' });
-  }
-});
-
-// Add a new route for returns that requires authentication
-app.post('/api/returns', authenticateToken, async (req, res) => {
-  try {
-    const { orderNumber, email, reason, description } = req.body;
-
-    const newReturn = await prisma.return.create({
-      data: {
-        orderNumber,
-        email,
-        reason,
-        description,
-        status: 'Pending',
-        userId: req.user.id, // Add the user ID to the return
-      },
-    });
-
-    // You may want to add an email notification for return submission as well
-    // await sendReturnSubmissionEmail(email, newReturn);
-
-    res.status(201).json(newReturn);
-  } catch (error) {
-    console.error('Error creating return:', error);
-    res.status(500).json({ error: 'An error occurred while creating the return' });
-  }
-});
-
-app.get('/api/tickets/updates', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const tickets = await prisma.ticket.findMany({
-      where: {
-        userId: userId,
-        status: 'Awaiting User Reply'
-      }
-    });
-    
-    res.json({ hasUpdates: tickets.length > 0 });
-  } catch (error) {
-    console.error('Error checking for ticket updates:', error);
-    res.status(500).json({ error: 'An error occurred while checking for updates' });
   }
 });
 
