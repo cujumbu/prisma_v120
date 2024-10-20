@@ -147,5 +147,13 @@
   "yourOptions": "Your Options",
   "submitTicketDescription": "Submit a support ticket for any questions or issues.",
   "createClaimDescription": "Create a warranty claim for product-related issues.",
-  "createReturnDescription": "Initiate a return for products you wish to send back."
+  "createReturnDescription": "Initiate a return for products you wish to send back.",
+  "loginRequiredMessage": "To submit a ticket, create a warranty claim, or initiate a return, you need to log in or create an account.",
+  "loginHere": "Log in here",
+  "or": "or",
+  "availableActions": "Available Actions",
+  "loginToAccessAllFeatures": "Log in to access all features including submitting tickets, creating warranty claims, and initiating returns.",
+  "loginToAccess": "Log in to Access",
+  "loginToSubmitWarrantyCase": "Log in to Submit Warranty Case",
+  "loginToCreateReturn": "Log in to Create Return"
 }
