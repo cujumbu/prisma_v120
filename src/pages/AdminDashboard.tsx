@@ -265,6 +265,11 @@ const AdminDashboard: React.FC = () => {
       ));
       setSelectedItem(updatedTicket);
       setReplyMessage('');
+
+      // Send email notification to the user
+      if (updatedTicket.user && updatedTicket.user.email) {
+        await sendStatusUpdateEmail(updatedTicket.user.email, updatedTicket.orderNumber, 'Awaiting User Reply');
+      }
     } catch (error) {
       console.error('Error replying to ticket:', error);
       if (error instanceof Error && error.message === 'No authentication token found') {
